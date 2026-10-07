@@ -1,0 +1,8 @@
+.git
+node_modules
+dist
+test-results
+playwright-report
+*.local
+__pycache__
+deploy/test_*.py
