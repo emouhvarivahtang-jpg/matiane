@@ -1,0 +1,25 @@
+Matiane uses heic-to 1.6.5 (LGPL-3.0-or-later) for HEIC decoding,
+with libheif 1.23.5 and libde265 1.0.16 (LGPL-2.1-or-later).
+
+Licenses supplied alongside this notice:
+HEIC-LGPL.txt, HEIC-GPL.txt, HEIC-LGPL-2.1.txt.
+Font license: /fonts/OFL.txt. Sample photographs: /photos/SOURCES.md.
+
+The uncombined heic-to package, its source modules and build instructions:
+/licenses/heic-to-1.6.5.tgz
+Corresponding codec sources:
+/licenses/libheif-1.23.5.tar.gz
+/licenses/libde265-1.0.16.tar.gz
+
+To rebuild the CSP decoder, follow the package README and build-emscripten.sh:
+LIBDE265_VERSION=1.0.16 USE_UNSAFE_EVAL=0 USE_WASM=0 ../build-emscripten.sh ..
+The documented macOS llvm-nm adjustment is in the package README. Copy the
+rebuilt libheif.js to heic-to/src/lib/libheif-without-unsafe-eval.js, then build
+heic-to using its esbuild.mjs. The library is loaded as a separate dynamic
+module and can be replaced with an interface-compatible modified version.
+
+Application source and instructions for rebuilding the combined application:
+https://github.com/emouhvarivahtang-jpg/matiane
+Run npm ci, replace node_modules/heic-to with your rebuilt package and run
+npm run build. No signing key or device restriction is required to install
+this modified build. The HEIC library is supplied without warranty.

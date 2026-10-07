@@ -77,3 +77,35 @@ The publication test uses isolated real Nginx containers and checks successful
 publication, old chunks, HTTP errors, mismatched responses, rollback and repeat
 publication. The live deployment is also checked with the browser tests and an
 actual GitHub commit picked up by the worker.
+
+## Matiane accounts and HTTPS studio (v0.2)
+
+The secure studio is https://matiane.57.129.177.67.sslip.io, alongside the old
+HTTP origin. The frontend still uses the static publisher above. The account
+application is `o96vqgukwtiwr7a4po0dd1ow` in the same Matiane production
+project. Its build pack is Docker Compose; `/server/compose.yml` builds
+`server/Dockerfile` with repository root context. Compose publishes only
+`127.0.0.1:3001:3000` and mounts `account-data` at `/data`. Coolify namespaces
+this volume for the application. Keep it across redeployments.
+
+The account app runs as the unprivileged Node user and receives no Docker
+socket or host publication mount. Its health check is `node
+/app/server/health.js`. Account passwords are scrypt hashes; sessions are
+opaque tokens in secure HttpOnly SameSite cookies, stored hashed in SQLite.
+Mutations validate the exact public origin and a session CSRF token. Incoming
+photos are decoded and validated by Sharp, private thumbnails are generated
+on the server, and version JSON only references owned photos.
+
+`deploy/setup-matiane-gateway.sh` manages only the new Matiane HTTPS vhost;
+existing IP and Coolify vhosts are preserved. `/api/` proxies the loopback
+account listener, overwriting forwarding headers. It checks certificate chain
+and backend response before completion and rolls back its own Nginx changes
+on failure. The existing certbot deployment hook reloads Nginx on renewal.
+
+The one-time `deploy/gateway.Dockerfile` infrastructure job uses Coolify's
+existing managed SSH helper to install this fixed configuration. It requires
+native storage mounts for `/var/run/docker.sock` (host file) and
+`/var/www/matiane` (host directory); it receives no API token and reads no SSH
+key. Stop and remove this temporary application after HTTPS verification.
+Keep the regular GitHub worker pinned and register both the frontend and
+account applications in `GITHUB_DEPLOY_PROJECTS` for future automatic updates.

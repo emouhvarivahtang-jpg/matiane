@@ -1,146 +1,1599 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { createRoot } from 'react-dom/client';
-import { ArrowUpRight, Upload, Plus, ChevronLeft, ChevronRight, X, Check, Download, Image as ImageIcon, BookOpen, Copy, Trash2, Eye, Minus, Undo2, Redo2, FolderOpen, MoreHorizontal, AlertTriangle, AlignLeft, AlignCenter, AlignRight, ArrowLeft, ArrowRight, Leaf, LoaderCircle, RotateCcw } from './icons';
-import { COLORS, LAYOUTS, CAPACITY, newPage, newBook, demoBook, uid, slots, captionBox, darkColor, issues, readPhoto, loadBook, saveBook, validateBook } from './model';
-import { download } from './download';
-import { browserCaption } from './text';
-import { translations } from './i18n';
-import './styles.css';
-
-function IconButton({ title, children, ...props }) { return <button className="icon-button" title={title} aria-label={title} {...props}>{children}</button>; }
-function LayoutIcon({ layout }) { return <div className={`layout-icon layout-${layout}`}>{slots(layout).map((r, i) => <i key={i} style={{ left: `${r.x / 148 * 100}%`, top: `${r.y / 210 * 100}%`, width: `${r.w / 148 * 100}%`, height: `${r.h / 210 * 100}%` }} />)}</div>; }
-function PageCanvas({ page, photos, t, selected = -1, onSelect, tiny = false }) {
-  const box = captionBox();
-  const [textLayout, setTextLayout] = useState({ size: page.fontSize, lines: [page.caption] });
-  useEffect(() => {
-    let active = true;
-    document.fonts.ready.then(() => { if (active) setTextLayout(browserCaption(page)); });
-    return () => { active = false; };
-  }, [page.caption, page.font, page.fontSize]);
-  return <div className={`book-page ${tiny ? 'tiny-page' : ''}`} style={{ background: page.color, color: page.layout === 'full' || darkColor(page.color) ? '#fff' : '#30332d' }}>
-    {slots(page.layout).map((r, index) => {
-      const photo = photos.find(p => p.id === page.photos[index]);
-      const style = { left: `${r.x / 148 * 100}%`, top: `${r.y / 210 * 100}%`, width: `${r.w / 148 * 100}%`, height: `${r.h / 210 * 100}%` };
-      return <div key={index} className={`photo-frame ${selected === index && onSelect ? 'frame-selected' : ''}`} style={style} onClick={() => onSelect?.(index)} onDragOver={e => onSelect && e.preventDefault()} onDrop={e => { e.preventDefault(); onSelect?.(index, e.dataTransfer.getData('text/matiane-photo')); }} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined} aria-label={`${t.frame} ${index + 1}`} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect?.(index); } }}>
-        {photo ? <img src={photo.src} alt={photo.name} draggable={false} style={{ objectPosition: `${page.focus.x}% ${page.focus.y}%` }} /> : <div className="empty-frame"><ImageIcon />{!tiny && <span>{t.empty}</span>}</div>}
-        {selected === index && onSelect && <span className="frame-number">{index + 1}</span>}
-      </div>;
-    })}
-    {page.caption && <div className={`page-caption ${page.font} ${page.layout === 'full' ? 'overlay-caption' : ''}`} style={{ left: `${box.x / 148 * 100}%`, top: `${box.y / 210 * 100}%`, width: `${box.w / 148 * 100}%`, height: `${box.h / 210 * 100}%`, fontSize: `${textLayout.size / (148 * 72 / 25.4) * 100}cqw`, textAlign: page.align }}>{textLayout.lines.join('\n')}</div>}
-  </div>;
+import React, { useState, useEffect, useRef } from "react";
+import { createRoot } from "react-dom/client";
+import {
+  Download,
+  Upload,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  X,
+  Eye,
+  Undo2,
+  Redo2,
+  ArrowLeft,
+  ArrowRight,
+  LoaderCircle,
+} from "./icons";
+import {
+  PAGE_COUNTS,
+  COLORS,
+  LAYOUTS,
+  CAPACITY,
+  newBook,
+  demoBook,
+  newCrop,
+  readPhoto,
+  slots,
+  darkColor,
+  pageLabel,
+  spreads,
+  resizeBook,
+  reorderPage,
+  forkBook,
+  validateBook,
+  portableBook,
+  issues,
+  localSaveBook,
+  localLoadBook,
+  localListBooks,
+  localDeleteBook,
+  migrateLocalBook,
+} from "./model";
+import { messages, errorMessage } from "./ui-text";
+import { api, CloudWriter } from "./api";
+import { PageCanvas, Spread } from "./canvas";
+import { Modal, AuthDialog, NewBookDialog, TextDialog } from "./dialogs";
+import { download } from "./download";
+import "./styles.css";
+import "./studio.css";
+const SECURE_STUDIO = "https://matiane.57.129.177.67.sslip.io";
+const oldOrigin = "http://57.129.177.67";
+const accountsAvailable =
+  location.protocol === "https:" ||
+  ["localhost", "127.0.0.1"].includes(location.hostname);
+function IconButton({ title, children, ...props }) {
+  return (
+    <button className="icon-button" title={title} aria-label={title} {...props}>
+      {children}
+    </button>
+  );
 }
-function Modal({ children, onClose, label, busy = false }) {
-  const ref = useRef();
-  useEffect(() => {
-    const previous = document.activeElement; ref.current.focus();
-    const onKey = e => {
-      if (e.key === 'Escape' && !busy) onClose();
-      if (e.key === 'Tab') {
-        const controls = [...ref.current.querySelectorAll('button:not(:disabled), input:not(:disabled), textarea, [tabindex="0"]')];
-        if (!controls.length) { e.preventDefault(); return; }
-        const first = controls[0], last = controls.at(-1);
-        if (e.shiftKey && (document.activeElement === first || document.activeElement === ref.current)) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && (document.activeElement === last || document.activeElement === ref.current)) { e.preventDefault(); first.focus(); }
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('keydown', onKey); previous?.focus(); };
-  }, [busy, onClose]);
-  return <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget && !busy) onClose(); }}><section className="modal" ref={ref} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>{children}</section></div>;
+function LayoutIcon({ layout }) {
+  return (
+    <div className={`layout-icon layout-${layout}`}>
+      {slots(layout).map((r, i) => (
+        <i
+          key={i}
+          style={{
+            left: `${(r.x / 148) * 100}%`,
+            top: `${(r.y / 210) * 100}%`,
+            width: `${(r.w / 148) * 100}%`,
+            height: `${(r.h / 210) * 100}%`,
+          }}
+        />
+      ))}
+    </div>
+  );
 }
-
 function App() {
-  const [book, setBook] = useState(null), [index, setIndex] = useState(0), [selectedFrame, setSelectedFrame] = useState(0);
-  const [tab, setTab] = useState('layout'), [saveStatus, setSaveStatus] = useState('saved'), [toast, setToast] = useState('');
-  const [modal, setModal] = useState(null), [menu, setMenu] = useState(false), [uploading, setUploading] = useState(false), [zoom, setZoom] = useState(100);
-  const [bleed, setBleed] = useState(true), [acceptWarnings, setAcceptWarnings] = useState(false), [exporting, setExporting] = useState(false), [progress, setProgress] = useState(0);
-  const [history, setHistory] = useState([]), [future, setFuture] = useState([]), [previewIndex, setPreviewIndex] = useState(0);
-  const photoInput = useRef(), projectInput = useRef(), saveQueue = useRef(Promise.resolve());
-  const latest = useRef(book); latest.current = book;
-  const language = book?.language || 'en', t = translations[language];
-  useEffect(() => { let active = true; loadBook().then(saved => { if (active) setBook(saved || demoBook()); }).catch(() => { if (active) { setBook(demoBook()); setToast(translations.en.storageError); } }); return () => { active = false; }; }, []);
-  useEffect(() => { document.documentElement.lang = language; }, [language]);
+  const [language, setLanguage] = useState(
+    () =>
+      localStorage.getItem("matiane-language") ||
+      (/^ru/.test(navigator.language) ? "ru" : "en"),
+  );
+  const t = messages[language] || messages.en;
+  const [ready, setReady] = useState(false),
+    [user, setUser] = useState(null),
+    [book, setBook] = useState(null),
+    [records, setRecords] = useState([]),
+    [cloudBooks, setCloudBooks] = useState([]),
+    [storage, setStorage] = useState(0);
+  const [index, setIndex] = useState(0),
+    [frame, setFrame] = useState(0),
+    [modal, setModal] = useState(null),
+    [toast, setToast] = useState(""),
+    [busy, setBusy] = useState(false),
+    [uploading, setUploading] = useState(false);
+  const [history, setHistory] = useState([]),
+    [future, setFuture] = useState([]),
+    [localStatus, setLocalStatus] = useState("saved"),
+    [cloudStatus, setCloudStatus] = useState(""),
+    [cloudError, setCloudError] = useState(null);
+  const [unusedOnly, setUnusedOnly] = useState(false),
+    [previewIndex, setPreviewIndex] = useState(0),
+    [textIndex, setTextIndex] = useState(0),
+    [bleed, setBleed] = useState(true),
+    [scope, setScope] = useState("all"),
+    [accepted, setAccepted] = useState(false),
+    [progress, setProgress] = useState(0),
+    [versions, setVersions] = useState([]),
+    [versionName, setVersionName] = useState("");
+  const photoInput = useRef(),
+    projectInput = useRef(),
+    writer = useRef(null),
+    current = useRef(book),
+    currentUser = useRef(user),
+    localQueue = useRef(Promise.resolve()),
+    activeToken = useRef(0);
+  current.current = book;
+  currentUser.current = user;
+  const owner = user?.id || "guest";
+  const initial = useRef(false);
+  useEffect(() => {
+    if (initial.current) return;
+    initial.current = true;
+    (async () => {
+      try {
+        await migrateLocalBook();
+      } catch {
+        setToast(t.storageError);
+      }
+      try {
+        if (accountsAvailable) {
+          const session = await api("/session");
+          setUser(session.user);
+        }
+      } catch {}
+      setReady(true);
+    })();
+  }, []);
+  async function refresh() {
+    try {
+      const local = await localListBooks(owner);
+      const guest = owner === "guest" ? [] : await localListBooks("guest");
+      if (user && accountsAvailable) {
+        const remote = await api("/books");
+        setCloudBooks(remote.books);
+        setStorage(remote.storageUsed);
+      } else setCloudBooks([]);
+      setRecords([...local, ...guest]);
+    } catch (e) {
+      setToast(errorMessage(e, t));
+    }
+  }
+  useEffect(() => {
+    if (ready && !book) refresh();
+  }, [ready, user, book]);
+  useEffect(() => {
+    document.documentElement.lang = language;
+    localStorage.setItem("matiane-language", language);
+  }, [language]);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(""), 7000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+  function localSave(snapshot, writeOwner, cloud) {
+    localQueue.current = localQueue.current
+      .catch(() => {})
+      .then(() => localSaveBook(snapshot, writeOwner, cloud));
+    return localQueue.current;
+  }
   useEffect(() => {
     if (!book) return;
-    setSaveStatus('saving');
+    setLocalStatus("saving");
+    const snapshot = book,
+      w = writer.current,
+      token = activeToken.current;
     const timer = setTimeout(() => {
-      saveQueue.current = saveQueue.current.catch(() => {}).then(() => saveBook(book)).then(() => { if (latest.current === book) setSaveStatus('saved'); }).catch(() => { if (latest.current === book) setSaveStatus('unsaved'); });
-    }, 450);
+      localSave(snapshot, owner, w ? { ...w.info, pending: true } : null)
+        .then(() => {
+          if (token === activeToken.current && snapshot === current.current)
+            setLocalStatus("saved");
+        })
+        .catch(() => {
+          if (token === activeToken.current) setLocalStatus("unsaved");
+        });
+    }, 350);
     return () => clearTimeout(timer);
-  }, [book]);
-  useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(''), 5000); return () => clearTimeout(timer); }, [toast]);
+  }, [book, owner]);
+  async function saveCloud(snapshot = current.current, options = {}) {
+    const w = writer.current,
+      token = activeToken.current,
+      writeOwner = currentUser.current?.id || owner;
+    if (!w || !snapshot) return;
+    setCloudStatus("savingCloud");
+    setCloudError(null);
+    try {
+      const info = await w.save(snapshot, options);
+      await localSave(snapshot, writeOwner, { ...info, pending: false });
+      if (token === activeToken.current) {
+        setCloudStatus(
+          snapshot === current.current ? "cloudSaved" : "savingCloud",
+        );
+        setCloudError(null);
+      }
+      return info;
+    } catch (e) {
+      if (token === activeToken.current) {
+        setCloudError(e);
+        setCloudStatus("cloudError");
+      }
+      throw e;
+    }
+  }
   useEffect(() => {
-    const listener = e => { if (saveStatus !== 'saved' || uploading || exporting) { e.preventDefault(); e.returnValue = ''; } };
-    window.addEventListener('beforeunload', listener); return () => window.removeEventListener('beforeunload', listener);
-  }, [saveStatus, uploading, exporting]);
-  useEffect(() => { setSelectedFrame(0); }, [index]);
-  function commit(next) { setHistory(h => [...h.slice(-29), book]); setFuture([]); setBook(next); }
-  function patchPage(patch) { commit({ ...book, pages: book.pages.map((p, i) => i === index ? { ...p, ...patch } : p) }); }
-  function undo() { if (!history.length) return; setFuture(f => [...f, book]); setBook(history.at(-1)); setHistory(h => h.slice(0, -1)); setIndex(i => Math.min(i, history.at(-1).pages.length - 1)); }
-  function redo() { if (!future.length) return; setHistory(h => [...h, book]); setBook(future.at(-1)); setFuture(f => f.slice(0, -1)); setIndex(i => Math.min(i, future.at(-1).pages.length - 1)); }
-  function assignPhoto(id, slot = selectedFrame) { if (!book.photos.some(p => p.id === id)) return; const photos = [...book.pages[index].photos]; while (photos.length <= slot) photos.push(null); photos[slot] = id; patchPage({ photos }); }
+    if (!book || !user || !writer.current) return;
+    setCloudStatus("savingCloud");
+    const timer = setTimeout(() => saveCloud(book).catch(() => {}), 2300);
+    return () => clearTimeout(timer);
+  }, [book, user]);
+  useEffect(() => {
+    const leave = (e) => {
+      if (
+        book &&
+        (localStatus !== "saved" ||
+          (user && cloudStatus !== "cloudSaved") ||
+          uploading ||
+          busy)
+      ) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", leave);
+    return () => window.removeEventListener("beforeunload", leave);
+  }, [book, user, localStatus, cloudStatus, uploading, busy]);
+  useEffect(() => {
+    if (location.origin !== new URL(SECURE_STUDIO).origin) return;
+    const receive = async (e) => {
+      if (e.origin !== oldOrigin || e.source !== window.opener) return;
+      if (e.data?.type === "matiane-ping") {
+        e.source.postMessage({ type: "matiane-ready" }, oldOrigin);
+        return;
+      }
+      if (e.data?.type !== "matiane-transfer") return;
+      try {
+        const imported = forkBook(validateBook(e.data.book));
+        await localSaveBook(imported);
+        openBook(imported, null);
+        setToast(t.transferDone);
+        e.source.postMessage({ type: "matiane-transfer-done" }, oldOrigin);
+      } catch {
+        setToast(t.importError);
+      }
+    };
+    window.addEventListener("message", receive);
+    window.opener?.postMessage({ type: "matiane-ready" }, oldOrigin);
+    return () => window.removeEventListener("message", receive);
+  }, [ready]);
+  function openBook(next, info = null) {
+    activeToken.current++;
+    writer.current = currentUser.current ? new CloudWriter(info) : null;
+    setBook(next);
+    setLanguage(next.language);
+    setIndex(0);
+    setFrame(0);
+    setHistory([]);
+    setFuture([]);
+    setCloudError(null);
+    setCloudStatus(
+      info ? "cloudSaved" : currentUser.current ? "savingCloud" : "",
+    );
+    setModal(null);
+  }
+  function commit(next) {
+    if (busy || !current.current) return;
+    setHistory((h) => [...h.slice(-29), current.current]);
+    setFuture([]);
+    setBook(next);
+  }
+  function patchPage(at, patch) {
+    const now = current.current;
+    commit({
+      ...now,
+      pages: now.pages.map((p, i) => (i === at ? { ...p, ...patch } : p)),
+    });
+  }
+  function choosePage(at, slot, photoId) {
+    setIndex(at);
+    if (slot !== undefined) setFrame(slot);
+    if (photoId) assign(photoId, at, slot);
+  }
+  function assign(id, at = index, slot = frame) {
+    const now = current.current,
+      p = now.pages[at];
+    if (!now.photos.some((p) => p.id === id) || slot >= p.photos.length) return;
+    const photos = [...p.photos],
+      crops = [...p.crops];
+    photos[slot] = id;
+    crops[slot] = newCrop();
+    patchPage(at, { photos, crops });
+  }
+  async function leaveEditor() {
+    if (uploading || busy) return;
+    const snapshot = current.current,
+      w = writer.current;
+    setBusy(true);
+    writer.current = null;
+    activeToken.current++;
+    let stored = false;
+    try {
+      await localSave(snapshot, owner, w ? { ...w.info, pending: true } : null);
+      stored = true;
+    } catch {}
+    if (w) {
+      try {
+        const info = await w.save(snapshot);
+        await w.queue;
+        stored = true;
+        await localSave(snapshot, owner, { ...info, pending: false }).catch(
+          () => {},
+        );
+      } catch {
+        setToast(t.cloudError);
+      }
+    }
+    if (stored) setBook(null);
+    else {
+      writer.current = w;
+      setToast(t.storageError);
+    }
+    setBusy(false);
+  }
+  async function authenticated(value) {
+    setRecords([]);
+    setCloudBooks([]);
+    setUser(value.user);
+    currentUser.current = value.user;
+    if (current.current) {
+      writer.current = new CloudWriter();
+      setCloudStatus("savingCloud");
+    }
+    setModal(null);
+  }
+  async function logout() {
+    if (busy) return;
+    setBusy(true);
+    const w = writer.current,
+      snapshot = current.current;
+    writer.current = null;
+    activeToken.current++;
+    try {
+      if (snapshot) {
+        let stored = false;
+        try {
+          await localSave(
+            snapshot,
+            owner,
+            w ? { ...w.info, pending: true } : null,
+          );
+          stored = true;
+        } catch {}
+        if (w) {
+          try {
+            const info = await w.save(snapshot);
+            await w.queue;
+            stored = true;
+            await localSave(snapshot, owner, { ...info, pending: false }).catch(
+              () => {},
+            );
+          } catch {}
+        }
+        if (!stored) throw new Error("unsaved");
+      }
+      await api("/auth/logout", { method: "POST" });
+      setBook(null);
+      setUser(null);
+      setRecords([]);
+      setCloudBooks([]);
+      setModal(null);
+    } catch (e) {
+      writer.current = w;
+      setToast(errorMessage(e, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function openRecord(record) {
+    setBusy(true);
+    try {
+      const r = await localLoadBook(record.id, record.owner);
+      if (!r) throw new Error("missing");
+      const info =
+        r.owner === owner
+          ? r.cloud?.id
+            ? { id: r.cloud.id, revision: r.cloud.revision }
+            : null
+          : null;
+      openBook(r.book, info);
+    } catch (e) {
+      setToast(t.importError);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function openCloud(record, latest = false) {
+    setBusy(true);
+    try {
+      const local = records.find(
+        (r) => r.owner === owner && r.cloud?.id === record.id,
+      );
+      if (local?.cloud.pending && !latest) return await openRecord(local);
+      const value = await api("/books/" + record.id);
+      openBook(value.book, { id: value.id, revision: value.revision });
+    } catch (e) {
+      setToast(errorMessage(e, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function deleteRecord(record, remote) {
+    if (!window.confirm(t.deleteConfirm)) return;
+    setBusy(true);
+    try {
+      if (remote) {
+        await api("/books/" + record.id, { method: "DELETE" });
+        for (const local of records.filter(
+          (r) => r.owner === owner && r.cloud?.id === record.id,
+        ))
+          await localDeleteBook(local.id, owner);
+      } else await localDeleteBook(record.id, record.owner);
+      await refresh();
+    } catch (e) {
+      setToast(errorMessage(e, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function duplicateRecord(record, remote) {
+    setBusy(true);
+    try {
+      const source = remote
+        ? (await api("/books/" + record.id)).book
+        : (await localLoadBook(record.id, record.owner)).book;
+      openBook(forkBook(source, source.title + " · " + t.duplicateBook));
+    } catch (e) {
+      setToast(errorMessage(e, t));
+    } finally {
+      setBusy(false);
+    }
+  }
   async function upload(files) {
-    if (uploading || !files.length) return;
-    setUploading(true); let failed = false; const additions = [];
-    const available = 200 - book.photos.length;
-    for (const file of [...files].slice(0, available)) { try { additions.push(await readPhoto(file)); } catch { failed = true; } }
-    const current = latest.current;
-    if (additions.length) { setHistory(h => [...h.slice(-29), current]); setFuture([]); setBook({ ...current, photos: [...current.photos, ...additions] }); }
-    setUploading(false); setToast(files.length > available ? t.photoLimit : failed ? t.uploadError : t.uploaded);
-  }
-  function addPage(duplicate = false) {
-    if (book.pages.length >= 80) { setToast(t.pageLimit); return; }
-    const pages = [...book.pages]; pages.splice(index + 1, 0, duplicate ? { ...structuredClone(page), id: uid() } : newPage()); commit({ ...book, pages }); setIndex(index + 1);
-  }
-  function deletePage() { if (book.pages.length === 1) return; commit({ ...book, pages: book.pages.filter((p, i) => i !== index) }); setIndex(Math.max(0, index - 1)); }
-  function movePage(direction) { const pages = [...book.pages], target = index + direction; [pages[index], pages[target]] = [pages[target], pages[index]]; commit({ ...book, pages }); setIndex(target); }
-  function fill() {
-    const used = new Set(book.pages.flatMap(p => p.photos)); const unused = book.photos.filter(p => !used.has(p.id)); let cursor = 0;
-    const pages = book.pages.map(p => ({ ...p, photos: slots(p.layout).map((_, i) => p.photos[i] || unused[cursor++]?.id || null) }));
-    if (!unused.length || !cursor) { setToast(t.noFill); return; } commit({ ...book, pages }); setToast(t.fillDone);
+    if (uploading || !files?.length) return;
+    setUploading(true);
+    const token = activeToken.current,
+      available = 200 - book.photos.length,
+      additions = [];
+    let failed = false;
+    for (const file of [...files].slice(0, available)) {
+      try {
+        additions.push(await readPhoto(file));
+      } catch {
+        failed = true;
+      }
+    }
+    if (token === activeToken.current && additions.length)
+      commit({
+        ...current.current,
+        photos: [...current.current.photos, ...additions],
+      });
+    setUploading(false);
+    setToast(
+      files.length > available
+        ? t.photoLimit
+        : failed
+          ? t.uploadError
+          : t.uploaded,
+    );
   }
   function removePhoto(id) {
-    if (book.pages.some(p => p.photos.includes(id)) && !window.confirm(t.removeConfirm)) return;
-    commit({ ...book, photos: book.photos.filter(p => p.id !== id), pages: book.pages.map(p => ({ ...p, photos: p.photos.map(item => item === id ? null : item) })) });
+    const now = current.current;
+    if (
+      now.pages.some((p) => p.photos.includes(id)) &&
+      !window.confirm(t.removeConfirm)
+    )
+      return;
+    commit({
+      ...now,
+      photos: now.photos.filter((p) => p.id !== id),
+      pages: now.pages.map((p) => ({
+        ...p,
+        photos: p.photos.map((v) => (v === id ? null : v)),
+      })),
+    });
   }
-  async function saveProject() {
+  function fill() {
+    const now = current.current,
+      used = new Set(now.pages.flatMap((p) => p.photos)),
+      unused = now.photos.filter((p) => !used.has(p.id));
+    let cursor = 0;
+    const pages = now.pages.map((p) => ({
+      ...p,
+      photos: p.photos.map((id) => id || unused[cursor++]?.id || null),
+    }));
+    if (!unused.length) {
+      setToast(t.noFill);
+      return;
+    }
+    commit({ ...now, pages });
+    setToast(t.fillDone);
+  }
+  async function changeCount(count) {
+    if (count === book.pageCount) return;
+    setBusy(true);
     try {
-      const photos = await Promise.all(book.photos.map(async p => {
-        if (p.src.startsWith('data:')) return p;
-        const res = await fetch(p.src); if (!res.ok) throw new Error('photo'); const blob = await res.blob();
-        const src = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob); });
-        return { ...p, src };
-      }));
-      download(JSON.stringify({ ...book, photos }), `${filename()}.matiane.json`, 'application/json'); setToast(t.projectSaved);
-    } catch { setToast(t.exportError); }
-    setMenu(false);
+      if (count < book.pageCount) {
+        if (!window.confirm(t.shrinkConfirm)) return;
+        const backup = forkBook(
+          book,
+          (book.title + " · " + t.backup).slice(0, 100),
+        );
+        if (user) {
+          const w = new CloudWriter();
+          const info = await w.save(backup, {
+            checkpoint: true,
+            label: t.backup,
+          });
+          await localSave(backup, owner, { ...info, pending: false });
+        } else await localSave(backup, owner, null);
+      }
+      commit(resizeBook(book, count));
+      setIndex((i) => Math.min(i, count + 1));
+    } catch (e) {
+      setToast(errorMessage(e, t));
+    } finally {
+      setBusy(false);
+    }
   }
-  async function openProject(file) {
+  function move(from, to) {
+    const now = current.current,
+      pages = reorderPage(now, from, to);
+    if (pages === now) return;
+    const selectedId = now.pages[index].id;
+    commit(pages);
+    setIndex(pages.pages.findIndex((p) => p.id === selectedId));
+  }
+  function undo() {
+    if (!history.length) return;
+    setFuture((f) => [...f, book]);
+    setBook(history.at(-1));
+    setIndex((i) => Math.min(i, history.at(-1).pages.length - 1));
+    setHistory((h) => h.slice(0, -1));
+  }
+  function redo() {
+    if (!future.length) return;
+    setHistory((h) => [...h, book]);
+    setBook(future.at(-1));
+    setIndex((i) => Math.min(i, future.at(-1).pages.length - 1));
+    setFuture((f) => f.slice(0, -1));
+  }
+  const filename = () =>
+    (book?.title || "Matiane")
+      .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "")
+      .slice(0, 80) || "Matiane";
+  async function saveProject() {
+    setBusy(true);
+    try {
+      download(
+        JSON.stringify(await portableBook(book)),
+        filename() + ".matiane.json",
+        "application/json",
+      );
+      setToast(t.projectSaved);
+    } catch {
+      setToast(t.exportError);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function importProject(file) {
     if (!file) return;
-    try { if (file.size > 200 * 1024 * 1024) throw new Error('size'); const imported = validateBook(JSON.parse(await file.text())); commit(imported); setIndex(0); setToast(t.loaded); } catch { setToast(t.importError); }
-    setMenu(false);
+    setBusy(true);
+    try {
+      if (file.size > 200 * 1024 * 1024) throw new Error("size");
+      const imported = forkBook(validateBook(JSON.parse(await file.text())));
+      openBook(imported);
+      setToast(t.loaded);
+    } catch {
+      setToast(t.importError);
+    } finally {
+      setBusy(false);
+    }
   }
-  function filename() { return book.title.trim().replace(/[<>:"/\\|?*\u0000-\u001F]/g, '').slice(0, 80) || 'Matiane'; }
-  async function print() { setExporting(true); setProgress(0); try { const { exportPdf } = await import('./pdf'); const data = await exportPdf(book, { bleed }, setProgress); download(data, `${filename()}-A5.pdf`, 'application/pdf'); setModal(null); setToast(t.done); } catch (error) { console.error('PDF export failed', error); setToast(t.exportError); } finally { setExporting(false); } }
-  if (!book) return <div className="loading"><LoaderCircle className="spin" />{t.loading}</div>;
-  const page = book.pages[index], warnings = issues(book), usedPhotos = new Set(book.pages.flatMap(p => p.photos));
-  const uniqueWarnings = [...new Map(warnings.map(w => [`${w.page}-${w.type}`, w])).values()];
-  return <>
+  async function transfer() {
+    const popup = window.open(SECURE_STUDIO + "/?transfer=1", "matiane-secure");
+    if (!popup) {
+      await saveProject();
+      setToast(t.transferFailed);
+      return;
+    }
+    setBusy(true);
+    try {
+      const snapshot = await portableBook(book);
+      const ack = await new Promise((resolve) => {
+        const receive = (e) => {
+          if (e.origin !== new URL(SECURE_STUDIO).origin || e.source !== popup)
+            return;
+          if (e.data?.type === "matiane-ready") {
+            popup.postMessage(
+              { type: "matiane-transfer", book: snapshot },
+              new URL(SECURE_STUDIO).origin,
+            );
+          }
+          if (e.data?.type === "matiane-transfer-done") {
+            clearTimeout(timeout);
+            window.removeEventListener("message", receive);
+            resolve(true);
+          }
+        };
+        const timeout = setTimeout(() => {
+          window.removeEventListener("message", receive);
+          resolve(false);
+        }, 20000);
+        window.addEventListener("message", receive);
+        popup.postMessage(
+          { type: "matiane-ping" },
+          new URL(SECURE_STUDIO).origin,
+        );
+      });
+      if (!ack) {
+        download(
+          JSON.stringify(snapshot),
+          filename() + ".matiane.json",
+          "application/json",
+        );
+        setToast(t.transferFailed);
+      } else setToast(t.transferDone);
+    } catch {
+      setToast(t.error);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function showVersions() {
+    if (!user) {
+      setModal("auth");
+      return;
+    }
+    setBusy(true);
+    try {
+      const info = await saveCloud();
+      const result = await api("/books/" + info.id + "/versions");
+      setVersions(result.versions);
+      setModal("versions");
+    } catch (e) {
+      setToast(errorMessage(e, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function checkpoint() {
+    setBusy(true);
+    try {
+      await saveCloud(book, { checkpoint: true, label: versionName });
+      setToast(t.versionSaved);
+      setVersionName("");
+      const result = await api(
+        "/books/" + writer.current.info.id + "/versions",
+      );
+      setVersions(result.versions);
+    } catch (e) {
+      setToast(errorMessage(e, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function restore(revision) {
+    if (!window.confirm(t.restoreConfirm)) return;
+    setBusy(true);
+    try {
+      const info = await saveCloud();
+      const value = await api("/books/" + info.id + "/versions/" + revision, {
+        method: "POST",
+        body: { baseVersion: info.revision },
+      });
+      openBook(value.book, { id: value.id, revision: value.revision });
+      setToast(t.restoredDone);
+    } catch (e) {
+      setToast(errorMessage(e, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function print() {
+    setBusy(true);
+    setProgress(0);
+    try {
+      const { exportPdf } = await import("./pdf");
+      download(
+        await exportPdf(book, { bleed, scope }, setProgress),
+        filename() + "-A5.pdf",
+        "application/pdf",
+      );
+      setModal(null);
+      setToast(t.done);
+    } catch {
+      setToast(t.exportError);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const spreadList = book ? spreads(book) : [],
+    spreadIndex = book
+      ? spreadList.findIndex((pair) => pair.includes(index))
+      : 0,
+    page = book?.pages[index],
+    warnings = book ? issues(book, scope) : [];
+  const usage = book
+    ? new Map(
+        book.photos.map((p) => [
+          p.id,
+          book.pages.reduce(
+            (sum, page) => sum + page.photos.filter((id) => id === p.id).length,
+            0,
+          ),
+        ]),
+      )
+    : new Map();
+  if (!ready)
+    return (
+      <div className="loading">
+        <LoaderCircle className="spin" />
+        {t.loading}
+      </div>
+    );
+  const header = (
     <header className="site-header">
-      <a className="brand" href="#" onClick={e => e.preventDefault()} aria-label="Matiane"><span className="brand-mark">m<span>✳</span></span><span>{language === 'ka' ? 'მატიანე' : 'matiane'}<small>{t.tagline}</small></span></a>
-      <div className="header-center"><span className="live-dot" />{t.studio}</div>
-      <div className="header-actions"><span className={`save-indicator ${saveStatus}`} title={t.localOnly}>{saveStatus === 'saved' ? <Check size={13} /> : <LoaderCircle size={13} />}{t[saveStatus]}</span><div className="language-switch" aria-label="Language"><button className={language === 'en' ? 'active' : ''} onClick={() => setBook({ ...book, language: 'en' })} aria-pressed={language === 'en'}>EN</button><button className={language === 'ka' ? 'active' : ''} onClick={() => setBook({ ...book, language: 'ka' })} aria-pressed={language === 'ka'}>ქარ</button></div><button className="primary export-top" onClick={() => { setAcceptWarnings(false); setModal('export'); }}><Download size={15} />{t.export}<ArrowUpRight size={15} /></button></div>
+      <button
+        className="brand"
+        onClick={() => book && leaveEditor()}
+        disabled={busy || uploading}
+      >
+        <span className="brand-mark">
+          m<span>✳</span>
+        </span>
+        <span>
+          {language === "ka" ? "მატიანე" : "matiane"}
+          <small>{t.tagline}</small>
+        </span>
+      </button>
+      <div className="header-actions">
+        <div className="language-switch" aria-label="Language">
+          {[
+            ["en", "EN"],
+            ["ka", "ქარ"],
+            ["ru", "RU"],
+          ].map(([lang, label]) => (
+            <button
+              key={lang}
+              aria-pressed={language === lang}
+              className={language === lang ? "active" : ""}
+              onClick={() => {
+                setLanguage(lang);
+                if (book) setBook({ ...book, language: lang });
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {user ? (
+          <button
+            className="text-button account-email"
+            onClick={() => setModal("account")}
+          >
+            {user.email}
+          </button>
+        ) : (
+          <button
+            className="secondary"
+            onClick={() =>
+              accountsAvailable
+                ? setModal("auth")
+                : window.open(SECURE_STUDIO, "_blank", "noopener")
+            }
+          >
+            {accountsAvailable ? t.account : t.secureVersion}
+          </button>
+        )}
+        {book && (
+          <button
+            className="primary export-top"
+            disabled={busy || uploading}
+            onClick={() => {
+              setAccepted(false);
+              setScope("all");
+              setModal("export");
+            }}
+          >
+            <Download size={15} />
+            {t.export}
+          </button>
+        )}
+      </div>
     </header>
-    <div className="project-bar"><div className="project-heading"><span className="eyebrow">MATIANE / {t.studio}</span><div className="book-title-row"><input aria-label={t.untitled} value={book.title} maxLength={100} onChange={e => commit({ ...book, title: e.target.value })} /><span className="format-pill">A5</span></div></div><div className="project-tools"><span className="page-count">{String(book.pages.length).padStart(2, '0')} {t.pages}</span><span className="tool-separator" /><IconButton title={t.undo} onClick={undo} disabled={!history.length || uploading}><Undo2 size={17} /></IconButton><IconButton title={t.redo} onClick={redo} disabled={!future.length || uploading}><Redo2 size={17} /></IconButton><button className="text-button" onClick={() => { setPreviewIndex(index); setModal('preview'); }}><Eye size={17} />{t.preview}</button><div className="menu-wrap"><IconButton title={t.project} onClick={() => setMenu(!menu)} disabled={uploading}><MoreHorizontal size={22} /></IconButton>{menu && <><button className="menu-dismiss" aria-label={t.close} onClick={() => setMenu(false)} /><div className="project-menu"><button onClick={saveProject}><Download size={16} />{t.saveProject}</button><button onClick={() => projectInput.current.click()}><FolderOpen size={16} />{t.openProject}</button><button onClick={() => { if (window.confirm(t.newConfirm)) { commit({ ...newBook(), language, title: t.blankBook }); setIndex(0); } setMenu(false); }}><Plus size={16} />{t.newProject}</button></div></>}</div></div></div>
-    <main className="studio-grid">
-      <aside className="photo-panel"><div className="panel-heading"><h2>{t.photos}</h2><p>{t.photoIntro}</p></div><button className="upload-zone" onClick={() => photoInput.current.click()} disabled={uploading} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); upload(e.dataTransfer.files); }}><span className="upload-icon">{uploading ? <LoaderCircle className="spin" size={23} /> : <Upload size={23} />}</span><strong>{uploading ? t.uploadBusy : t.upload}</strong><small>{t.uploadHint}</small></button><div className="library-heading"><h3>{t.library}</h3><span>{book.photos.length}</span></div><p className="placement-hint">{t.placeHint}</p><div className="photo-library">{book.photos.map(photo => <div className={`library-photo ${page.photos.includes(photo.id) ? 'in-page' : ''}`} key={photo.id}><button title={`${t.shortcut}: ${photo.name}`} aria-label={`${t.photos}: ${photo.name}`} onClick={() => assignPhoto(photo.id)} draggable onDragStart={e => e.dataTransfer.setData('text/matiane-photo', photo.id)}><img src={photo.src} alt={photo.name} loading="lazy" />{usedPhotos.has(photo.id) && <span className="photo-used"><Check size={11} /></span>}{photo.demo && <span className="demo-tag">DEMO</span>}</button><button className="remove-photo" title={t.removePhoto} aria-label={`${t.removePhoto}: ${photo.name}`} onClick={() => removePhoto(photo.id)}><X size={11} /></button></div>)}{!book.photos.length && <div className="no-photos"><ImageIcon size={32} /><p>{t.noPhotos}</p></div>}</div><button className="secondary fill-button" onClick={fill} disabled={!book.photos.length}><Plus size={14} />{t.autoFill}</button>{book.photos.some(p => p.demo) && <div className="sample-note"><Leaf size={16} /><div><strong><a href="/photos/SOURCES.md" target="_blank" rel="noreferrer">{t.samples}</a></strong><p>{t.sampleHint}</p></div></div>}<div className="privacy-note"><span className="live-dot" />{t.privacy}</div></aside>
-      <section className="workspace" aria-label={t.studio}><div className="canvas-toolbar"><div><BookOpen size={15} /><span>{t.page} <b>{String(index + 1).padStart(2, '0')}</b><span className="muted"> / {String(book.pages.length).padStart(2, '0')}</span></span></div><div className="zoom-controls"><IconButton title={t.zoomOut} onClick={() => setZoom(Math.max(70, zoom - 10))} disabled={zoom === 70}><Minus size={14} /></IconButton><span>{zoom}%</span><IconButton title={t.zoomIn} onClick={() => setZoom(Math.min(130, zoom + 10))} disabled={zoom === 130}><Plus size={14} /></IconButton></div></div><div className="canvas-stage"><div className="paper-measure"><span>148 mm</span></div><div className="page-with-navigation"><IconButton title={t.prev} onClick={() => setIndex(index - 1)} disabled={index === 0}><ChevronLeft size={22} /></IconButton><div className="page-wrapper" style={{ width: `${Math.round(326 * zoom / 100)}px` }}><PageCanvas page={page} photos={book.photos} t={t} selected={selectedFrame} onSelect={(slot, photoId) => { setSelectedFrame(slot); if (photoId) assignPhoto(photoId, slot); }} /></div><IconButton title={t.next} onClick={() => setIndex(index + 1)} disabled={index === book.pages.length - 1}><ChevronRight size={22} /></IconButton></div><div className="canvas-footer"><span>{t.format}</span><span className="footer-dot">·</span><span>{t.portrait}</span></div></div><div className="filmstrip-section"><div className="filmstrip-heading"><span>{t.pages} <b>{book.pages.length}</b></span><div><IconButton title={t.moveLeft} disabled={index === 0} onClick={() => movePage(-1)}><ArrowLeft size={14} /></IconButton><IconButton title={t.moveRight} disabled={index === book.pages.length - 1} onClick={() => movePage(1)}><ArrowRight size={14} /></IconButton><span className="tool-separator" /><IconButton title={t.duplicate} onClick={() => addPage(true)} disabled={book.pages.length >= 80}><Copy size={14} /></IconButton><IconButton title={t.deletePage} onClick={deletePage} disabled={book.pages.length === 1}><Trash2 size={14} /></IconButton></div></div><div className="filmstrip">{book.pages.map((p, i) => <button className={`page-thumb ${index === i ? 'selected' : ''}`} key={p.id} onClick={() => setIndex(i)} aria-label={`${t.page} ${i + 1}`} aria-pressed={index === i}><div className="thumbnail-paper"><PageCanvas page={p} photos={book.photos} t={t} tiny /></div><span>{String(i + 1).padStart(2, '0')}</span></button>)}<button className="add-page" onClick={() => addPage()} disabled={book.pages.length >= 80}><Plus size={21} /><span>{t.addPage}</span></button></div></div></section>
-      <aside className="design-panel"><div className="panel-heading"><h2>{t.styleTitle}</h2><p>{t.styleIntro}</p></div><div className="design-tabs" role="tablist"><button role="tab" aria-selected={tab === 'layout'} onClick={() => setTab('layout')}>{t.layout}</button><button role="tab" aria-selected={tab === 'caption'} onClick={() => setTab('caption')}>{t.caption}</button></div>{tab === 'layout' ? <><div className="control-section"><h3>{t.pageLayout}</h3><div className="layout-grid">{LAYOUTS.map(layout => <button key={layout} className={`layout-choice ${page.layout === layout ? 'selected' : ''}`} onClick={() => { const photos = Array.from({ length: CAPACITY[layout] }, (_, i) => page.photos[i] || null); patchPage({ layout, photos }); setSelectedFrame(0); }} aria-pressed={page.layout === layout}><LayoutIcon layout={layout} /><span>{t[layout]}</span>{page.layout === layout && <span className="layout-check"><Check size={10} /></span>}</button>)}</div></div><div className="control-section"><h3>{t.pageColor}</h3><div className="swatches">{COLORS.map(c => <button key={c} style={{ background: c }} className={page.color === c ? 'selected' : ''} onClick={() => patchPage({ color: c })} aria-label={`${t.pageColor} ${c}`} aria-pressed={page.color === c}>{page.color === c && <Check size={15} color={darkColor(c) ? 'white' : '#454b40'} />}</button>)}</div></div><div className="control-section crop-controls"><div className="section-title"><h3>{t.position}</h3><IconButton title={t.reset} onClick={() => patchPage({ focus: { x: 50, y: 50 } })}><RotateCcw size={13} /></IconButton></div>{['x', 'y'].map(axis => <label key={axis}><span>{axis === 'x' ? t.horizontal : t.vertical}</span><input type="range" min="0" max="100" value={page.focus[axis]} onChange={e => patchPage({ focus: { ...page.focus, [axis]: Number(e.target.value) } })} /></label>)}</div></> : <><div className="control-section"><label className="control-label" htmlFor="caption-input">{t.captionLabel}</label><textarea id="caption-input" placeholder={t.captionHint} value={page.caption} maxLength={300} onChange={e => patchPage({ caption: e.target.value })} /><div className="character-count">{page.caption.length} / 300</div></div><div className="control-section"><h3>{t.typography}</h3><div className="font-options">{['serif', 'sans'].map(font => <button key={font} className={page.font === font ? 'selected' : ''} aria-pressed={page.font === font} onClick={() => patchPage({ font })}><span className={font}>Aa</span>{t[font]}</button>)}</div><label className="range-label"><span>{t.fontSize}<b>{page.fontSize} pt</b></span><input type="range" min="8" max="22" value={page.fontSize} onChange={e => patchPage({ fontSize: Number(e.target.value) })} /></label></div><div className="control-section"><h3>{t.alignment}</h3><div className="align-controls">{[['left', AlignLeft], ['center', AlignCenter], ['right', AlignRight]].map(([align, Icon]) => <button key={align} className={page.align === align ? 'selected' : ''} aria-label={t[align]} aria-pressed={page.align === align} onClick={() => patchPage({ align })}><Icon size={18} /></button>)}</div><p className="small-note">{t.captionFit}</p></div></>}<div className="design-footer"><span>✳</span><p>{t.tagline}</p><small>MATIANE — {t.format}</small></div></aside>
-    </main>
-    <input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden ref={photoInput} onChange={e => { upload(e.target.files); e.target.value = ''; }} /><input type="file" accept=".json,.matiane" hidden ref={projectInput} onChange={e => { openProject(e.target.files[0]); e.target.value = ''; }} />
-    {toast && <div className="toast" role="status"><Check size={16} /><span>{toast}</span><IconButton title={t.close} onClick={() => setToast('')}><X size={14} /></IconButton></div>}
-    {modal === 'export' && <Modal label={t.export} onClose={() => setModal(null)} busy={exporting}><div className="modal-heading"><span className="eyebrow">MATIANE / PRINT</span><IconButton title={t.close} disabled={exporting} onClick={() => setModal(null)}><X size={20} /></IconButton></div><h2>{t.printTitle}</h2><p className="modal-intro">{t.printIntro}</p><div className="export-book-summary"><BookOpen size={30} /><div><strong>{book.title || 'Matiane'}</strong><span>{book.pages.length} {t.pages} · {t.format}</span></div></div><p className="small-note">{t.exportInfo}</p><label className="bleed-option"><input type="checkbox" checked={bleed} disabled={exporting} onChange={e => setBleed(e.target.checked)} /><div><strong>{t.bleed}</strong><small>{bleed ? t.bleedHint : t.noBleed}</small></div></label><div className="preflight"><h3>{t.review}</h3>{uniqueWarnings.length ? <><div className="warning-list">{uniqueWarnings.map((w, i) => <div key={i}><AlertTriangle size={15} /><span>{t.page} {w.page}: {w.type === 'empty' ? t.emptyFrame : `${t.lowRes} (${w.dpi} ${t.dpi})`}</span></div>)}</div><label className="warning-accept"><input type="checkbox" checked={acceptWarnings} disabled={exporting} onChange={e => setAcceptWarnings(e.target.checked)} /><span>{t.warningAccept}</span></label></> : <p className="good-quality"><Check size={16} />{t.good}</p>}{book.photos.some(p => p.demo) && <p className="small-note">{t.sampleWarning}</p>}</div><button className="primary download-pdf" disabled={exporting || (warnings.length > 0 && !acceptWarnings)} onClick={print}>{exporting ? <LoaderCircle className="spin" size={18} /> : <Download size={18} />}{exporting ? `${t.exporting} ${Math.round(progress * 100)}%` : t.downloadPdf}</button><p className="export-footer">{t.bleedFooter}</p></Modal>}
-    {modal === 'preview' && <Modal label={t.preview} onClose={() => setModal(null)}><div className="modal-heading"><span className="eyebrow">{t.previewTitle}</span><IconButton title={t.close} onClick={() => setModal(null)}><X size={20} /></IconButton></div><div className="preview-stage"><IconButton title={t.prev} onClick={() => setPreviewIndex(previewIndex - 1)} disabled={previewIndex === 0}><ChevronLeft /></IconButton><div className="preview-page"><PageCanvas page={book.pages[previewIndex]} photos={book.photos} t={t} /></div><IconButton title={t.next} onClick={() => setPreviewIndex(previewIndex + 1)} disabled={previewIndex === book.pages.length - 1}><ChevronRight /></IconButton></div><div className="preview-counter">{t.page} {previewIndex + 1} / {book.pages.length}</div></Modal>}
-  </>;
+  );
+  return (
+    <>
+      {header}
+      {!book ? (
+        <main className="cabinet">
+          <div className="cabinet-heading">
+            <div>
+              <span className="eyebrow">MATIANE</span>
+              <h1>{t.myBooks}</h1>
+              <p>{t.welcome}</p>
+            </div>
+            <div className="cabinet-actions">
+              <button
+                className="secondary"
+                onClick={() => projectInput.current.click()}
+                disabled={busy}
+              >
+                {t.openProject}
+              </button>
+              <button
+                className="primary"
+                onClick={() => setModal("new")}
+                disabled={busy}
+              >
+                <Plus size={16} />
+                {t.newProject}
+              </button>
+            </div>
+          </div>
+          {!user && (
+            <div className="account-invitation">
+              <p>{t.signInHint}</p>
+              <button
+                className="text-button"
+                onClick={() =>
+                  accountsAvailable
+                    ? setModal("auth")
+                    : window.open(SECURE_STUDIO, "_blank", "noopener")
+                }
+              >
+                {accountsAvailable ? t.account : t.secureVersion} →
+              </button>
+            </div>
+          )}
+          {user && (
+            <p className="small-note">
+              {t.cloudBooks} · {Math.round(storage / 1024 / 1024)} / 1024 MB
+            </p>
+          )}
+          {cloudBooks.length > 0 && (
+            <section className="cloud-books">
+              <h2>{t.cloudBooks}</h2>
+              <div className="book-grid">
+                {cloudBooks.map((r) => (
+                  <BookCard
+                    key={r.id}
+                    t={t}
+                    record={r}
+                    cover={r.cover}
+                    onOpen={() => openCloud(r)}
+                    onDelete={() => deleteRecord(r, true)}
+                    onCopy={() => duplicateRecord(r, true)}
+                    busy={busy}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+          <section className="local-books">
+            <h2>{t.localBooks}</h2>
+            <div className="book-grid">
+              {records
+                .filter(
+                  (r) =>
+                    r.owner === "guest" ||
+                    !r.cloud?.id ||
+                    !cloudBooks.some((c) => c.id === r.cloud.id),
+                )
+                .map((r) => (
+                  <BookCard
+                    key={r.owner + ":" + r.id}
+                    t={t}
+                    cover={r.cover}
+                    record={{
+                      ...r,
+                      title: r.book.title,
+                      pageCount: r.book.pageCount,
+                    }}
+                    onOpen={() => openRecord(r)}
+                    onDelete={() => deleteRecord(r, false)}
+                    onCopy={() => duplicateRecord(r, false)}
+                    busy={busy}
+                  />
+                ))}
+            </div>
+          </section>
+          {!cloudBooks.length && !records.length && (
+            <div className="empty-cabinet">
+              <span>✳</span>
+              <p>{t.emptyDashboard}</p>
+              <button
+                className="secondary"
+                onClick={() => openBook(demoBook(language))}
+              >
+                {t.demo}
+              </button>
+            </div>
+          )}
+        </main>
+      ) : (
+        <>
+          <div className="project-bar">
+            <div className="project-heading">
+              <button
+                className="text-button back-books"
+                onClick={leaveEditor}
+                disabled={busy || uploading}
+              >
+                ← {t.myBooks}
+              </button>
+              <div className="book-title-row">
+                <input
+                  aria-label={t.untitled}
+                  value={book.title}
+                  maxLength={100}
+                  onChange={(e) => commit({ ...book, title: e.target.value })}
+                />
+                <span className="format-pill">A5</span>
+              </div>
+            </div>
+            <div className="project-tools">
+              <label className="page-count-control">
+                {t.insidePages}
+                <select
+                  aria-label={t.insidePages}
+                  value={book.pageCount}
+                  onChange={(e) => changeCount(Number(e.target.value))}
+                  disabled={busy || uploading}
+                >
+                  {PAGE_COUNTS.map((n) => (
+                    <option key={n}>{n}</option>
+                  ))}
+                </select>
+                <small>{t.coversSeparate}</small>
+              </label>
+              <IconButton
+                title={t.undo}
+                disabled={!history.length || busy || uploading}
+                onClick={undo}
+              >
+                <Undo2 size={16} />
+              </IconButton>
+              <IconButton
+                title={t.redo}
+                disabled={!future.length || busy || uploading}
+                onClick={redo}
+              >
+                <Redo2 size={16} />
+              </IconButton>
+              <button
+                className="text-button"
+                onClick={() => {
+                  setPreviewIndex(spreadIndex);
+                  setModal("preview");
+                }}
+              >
+                <Eye size={16} />
+                {t.preview}
+              </button>
+            </div>
+          </div>
+          <div className="save-bar">
+            <span className={cloudError ? "error-note" : ""}>
+              {t[user ? cloudStatus || "savingCloud" : localStatus]}
+            </span>
+            {user ? (
+              <>
+                <button onClick={showVersions} disabled={busy || uploading}>
+                  {t.versions}
+                </button>
+                {cloudError && (
+                  <button
+                    onClick={() => saveCloud().catch(() => {})}
+                    disabled={busy}
+                  >
+                    {t.retry}
+                  </button>
+                )}
+              </>
+            ) : (
+              <button
+                onClick={() =>
+                  accountsAvailable ? setModal("auth") : transfer()
+                }
+                disabled={busy || uploading}
+              >
+                {accountsAvailable ? t.saveOnline : t.transfer}
+              </button>
+            )}
+            <button onClick={saveProject} disabled={busy || uploading}>
+              {t.saveProject}
+            </button>
+            <button
+              onClick={() => projectInput.current.click()}
+              disabled={busy || uploading}
+            >
+              {t.openProject}
+            </button>
+          </div>
+          {cloudError?.code === "version_conflict" && (
+            <div className="conflict-banner">
+              <p>{t.conflict}</p>
+              <button
+                className="secondary"
+                onClick={() => openCloud({ id: writer.current.info.id }, true)}
+              >
+                {t.openLatest}
+              </button>
+              <button
+                className="primary"
+                onClick={() => openBook(forkBook(book))}
+              >
+                {t.saveCopy}
+              </button>
+            </div>
+          )}
+          <main className="studio-grid">
+            <aside className="photo-panel">
+              <div className="panel-heading">
+                <h2>{t.photos}</h2>
+                <p>{t.photoIntro}</p>
+              </div>
+              <button
+                className="upload-zone"
+                disabled={busy || uploading}
+                onClick={() => photoInput.current.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  upload(e.dataTransfer.files);
+                }}
+              >
+                <span className="upload-icon">
+                  {uploading ? <LoaderCircle className="spin" /> : <Upload />}
+                </span>
+                <strong>{uploading ? t.uploadBusy : t.upload}</strong>
+                <small>{t.uploadHint}</small>
+              </button>
+              <div className="library-heading">
+                <h3>{t.library}</h3>
+                <span>{book.photos.length}</span>
+              </div>
+              <p className="placement-hint">{t.placeHint}</p>
+              <label className="unused-filter">
+                <input
+                  type="checkbox"
+                  checked={unusedOnly}
+                  onChange={(e) => setUnusedOnly(e.target.checked)}
+                />
+                {t.unused}
+              </label>
+              <div className="photo-library">
+                {book.photos
+                  .filter((p) => !unusedOnly || !usage.get(p.id))
+                  .map((photo) => (
+                    <div
+                      className={`library-photo ${page.photos.includes(photo.id) ? "in-page" : ""}`}
+                      key={photo.id}
+                    >
+                      <button
+                        aria-label={`${t.photos}: ${photo.name}`}
+                        title={photo.name}
+                        onClick={() => assign(photo.id)}
+                        draggable
+                        onDragStart={(e) =>
+                          e.dataTransfer.setData("text/matiane-photo", photo.id)
+                        }
+                      >
+                        <img
+                          src={
+                            photo.thumbnail ||
+                            (photo.src.startsWith("/api/photos/")
+                              ? photo.src + "?thumbnail=1"
+                              : photo.src)
+                          }
+                          alt={photo.name}
+                          loading="lazy"
+                        />
+                        {usage.get(photo.id) > 0 && (
+                          <span className="photo-used">
+                            ✓ {t.used} {usage.get(photo.id)}
+                          </span>
+                        )}
+                        {photo.demo && <span className="demo-tag">DEMO</span>}
+                      </button>
+                      <button
+                        className="remove-photo"
+                        aria-label={`${t.removePhoto}: ${photo.name}`}
+                        onClick={() => removePhoto(photo.id)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+              </div>
+              <button
+                className="secondary fill-button"
+                onClick={fill}
+                disabled={!book.photos.length || uploading || busy}
+              >
+                {t.autoFill}
+              </button>
+              <p className="privacy-note">
+                {user ? t.privacyCloud : t.privacy}
+              </p>
+              {book.photos.some((p) => p.demo) && (
+                <p className="small-note">
+                  <a href="/photos/SOURCES.md" target="_blank" rel="noreferrer">
+                    {t.samples}
+                  </a>{" "}
+                  · {t.sampleHint}
+                </p>
+              )}
+            </aside>
+            <section className="workspace" aria-label={t.studio}>
+              <div className="canvas-toolbar">
+                <span>
+                  {spreadIndex === 0
+                    ? t.coverSpread
+                    : `${t.spread} ${spreadIndex} / ${spreadList.length - 1}`}
+                </span>
+                <span>{pageLabel(page, index, t)}</span>
+              </div>
+              <div className="canvas-stage">
+                <div className="spread-navigation">
+                  <IconButton
+                    title={t.prev}
+                    disabled={spreadIndex === 0}
+                    onClick={() =>
+                      choosePage(
+                        spreadList[spreadIndex - 1].find((v) => v !== null),
+                      )
+                    }
+                  >
+                    <ChevronLeft />
+                  </IconButton>
+                  <Spread
+                    book={book}
+                    spreadIndex={spreadIndex}
+                    t={t}
+                    activeIndex={index}
+                    activeFrame={frame}
+                    onSelect={choosePage}
+                    onCrop={(at, slot, crop) => {
+                      const crops = [...current.current.pages[at].crops];
+                      crops[slot] = crop;
+                      patchPage(at, { crops });
+                    }}
+                    onText={(at) => {
+                      choosePage(at);
+                      setTextIndex(at);
+                      setModal("text");
+                    }}
+                  />
+                  <IconButton
+                    title={t.next}
+                    disabled={spreadIndex === spreadList.length - 1}
+                    onClick={() =>
+                      choosePage(
+                        spreadList[spreadIndex + 1].find((v) => v !== null),
+                      )
+                    }
+                  >
+                    <ChevronRight />
+                  </IconButton>
+                </div>
+                <p className="crop-instruction">{t.cropHint}</p>
+                <div className="canvas-footer">
+                  {t.format} · {t.portrait}
+                </div>
+              </div>
+              <div className="filmstrip-section">
+                <div className="filmstrip-heading">
+                  <span>
+                    {book.pageCount} {t.pages} {t.coversSeparate}
+                  </span>
+                  <div>
+                    <IconButton
+                      title={t.moveLeft}
+                      disabled={index <= 1 || index > book.pageCount}
+                      onClick={() => move(index, index - 1)}
+                    >
+                      <ArrowLeft size={14} />
+                    </IconButton>
+                    <IconButton
+                      title={t.moveRight}
+                      disabled={index < 1 || index >= book.pageCount}
+                      onClick={() => move(index, index + 1)}
+                    >
+                      <ArrowRight size={14} />
+                    </IconButton>
+                    <label className="move-to">
+                      {t.moveTo}
+                      <input
+                        type="number"
+                        min={1}
+                        max={book.pageCount}
+                        key={page.id + "-" + index}
+                        defaultValue={
+                          index >= 1 && index <= book.pageCount ? index : ""
+                        }
+                        disabled={page.kind !== "page"}
+                        onBlur={(e) => {
+                          const to = Number(e.target.value);
+                          if (
+                            Number.isInteger(to) &&
+                            to >= 1 &&
+                            to <= book.pageCount
+                          )
+                            move(index, to);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") e.target.blur();
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+                <div className="filmstrip">
+                  {book.pages.map((p, i) => (
+                    <button
+                      key={p.id}
+                      className={`page-thumb ${index === i ? "selected" : ""} ${p.kind !== "page" ? "cover-thumb" : ""}`}
+                      aria-label={pageLabel(p, i, t)}
+                      aria-pressed={index === i}
+                      onClick={() => choosePage(i, 0)}
+                      draggable={p.kind === "page"}
+                      onDragStart={(e) =>
+                        e.dataTransfer.setData("text/matiane-page", p.id)
+                      }
+                      onDragOver={(e) => {
+                        if (p.kind === "page") e.preventDefault();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const from = book.pages.findIndex(
+                          (p) =>
+                            p.id ===
+                            e.dataTransfer.getData("text/matiane-page"),
+                        );
+                        move(from, i);
+                      }}
+                    >
+                      <div className="thumbnail-paper">
+                        <PageCanvas page={p} photos={book.photos} t={t} tiny />
+                      </div>
+                      <span>{pageLabel(p, i, t)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+            <aside className="design-panel">
+              <div className="panel-heading">
+                <h2>{t.styleTitle}</h2>
+                <p>{pageLabel(page, index, t)}</p>
+              </div>
+              <div className="control-section">
+                <h3>{t.pageLayout}</h3>
+                <div className="layout-grid">
+                  {LAYOUTS.map((layout) => (
+                    <button
+                      key={layout}
+                      className={`layout-choice ${page.layout === layout ? "selected" : ""}`}
+                      aria-pressed={page.layout === layout}
+                      onClick={() => {
+                        patchPage(index, {
+                          layout,
+                          photos: Array.from(
+                            { length: CAPACITY[layout] },
+                            (_, i) => page.photos[i] || null,
+                          ),
+                          crops: Array.from(
+                            { length: CAPACITY[layout] },
+                            (_, i) => page.crops[i] || newCrop(),
+                          ),
+                        });
+                        setFrame(0);
+                      }}
+                    >
+                      <LayoutIcon layout={layout} />
+                      <span>{t[layout]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="control-section">
+                <h3>{t.pageColor}</h3>
+                <div className="swatches">
+                  {COLORS.map((color) => (
+                    <button
+                      key={color}
+                      style={{ background: color }}
+                      aria-label={`${t.pageColor} ${color}`}
+                      aria-pressed={page.color === color}
+                      className={page.color === color ? "selected" : ""}
+                      onClick={() => patchPage(index, { color })}
+                    >
+                      {page.color === color && (
+                        <Check
+                          size={15}
+                          color={darkColor(color) ? "white" : "#454b40"}
+                        />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="control-section">
+                <button
+                  className="secondary full-width"
+                  onClick={() => {
+                    setTextIndex(index);
+                    setModal("text");
+                  }}
+                >
+                  {t.editText}
+                </button>
+                <p className="small-note">{t.cropHint}</p>
+                <p className="small-note">{t.qualityTarget}</p>
+              </div>
+              <div className="design-footer">
+                <span>✳</span>
+                <p>{t.tagline}</p>
+              </div>
+            </aside>
+          </main>
+        </>
+      )}
+      <footer className="legal-footer">
+        <a href="/licenses/NOTICE.txt" target="_blank" rel="noreferrer">
+          {language === "ru"
+            ? "Лицензии ресурсов"
+            : language === "ka"
+              ? "რესურსების ლიცენზიები"
+              : "Resource licenses"}
+        </a>
+      </footer>
+      <input
+        hidden
+        type="file"
+        multiple
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+        ref={photoInput}
+        onChange={(e) => {
+          upload(e.target.files);
+          e.target.value = "";
+        }}
+      />
+      <input
+        hidden
+        type="file"
+        accept=".json,.matiane"
+        ref={projectInput}
+        onChange={(e) => {
+          importProject(e.target.files[0]);
+          e.target.value = "";
+        }}
+      />
+      {toast && (
+        <div className="toast" role="status">
+          <span>{toast}</span>
+          <button aria-label={t.close} onClick={() => setToast("")}>
+            ×
+          </button>
+        </div>
+      )}
+      {modal === "new" && (
+        <NewBookDialog
+          t={t}
+          onClose={() => setModal(null)}
+          onCreate={(count, title) => openBook(newBook(count, title, language))}
+        />
+      )}
+      {modal === "auth" && (
+        <AuthDialog
+          t={t}
+          onClose={() => setModal(null)}
+          onAuthenticated={authenticated}
+        />
+      )}
+      {modal === "account" && (
+        <Modal label={t.myBooks} onClose={() => setModal(null)} busy={busy}>
+          <p>{user.email}</p>
+          <button
+            className="secondary full-width"
+            disabled={busy}
+            onClick={logout}
+          >
+            {t.logout}
+          </button>
+        </Modal>
+      )}
+      {modal === "text" && book && (
+        <TextDialog
+          key={book.pages[textIndex].id}
+          page={book.pages[textIndex]}
+          t={t}
+          onClose={() => setModal(null)}
+          onApply={(draft) => {
+            patchPage(textIndex, draft);
+            setModal(null);
+          }}
+        />
+      )}
+      {modal === "preview" && book && (
+        <Modal wide label={t.previewTitle} onClose={() => setModal(null)}>
+          <div className="spread-navigation preview-navigation">
+            <IconButton
+              title={t.prev}
+              disabled={previewIndex === 0}
+              onClick={() => setPreviewIndex(previewIndex - 1)}
+            >
+              <ChevronLeft />
+            </IconButton>
+            <Spread book={book} spreadIndex={previewIndex} t={t} />
+            <IconButton
+              title={t.next}
+              disabled={previewIndex === spreadList.length - 1}
+              onClick={() => setPreviewIndex(previewIndex + 1)}
+            >
+              <ChevronRight />
+            </IconButton>
+          </div>
+        </Modal>
+      )}
+      {modal === "versions" && (
+        <Modal label={t.versions} onClose={() => setModal(null)} busy={busy}>
+          <label>
+            {t.versionName}
+            <input
+              maxLength={100}
+              value={versionName}
+              onChange={(e) => setVersionName(e.target.value)}
+            />
+          </label>
+          <button
+            className="primary full-width"
+            disabled={busy}
+            onClick={checkpoint}
+          >
+            {t.saveVersion}
+          </button>
+          <div className="version-list">
+            {versions.map((v) => (
+              <div key={v.revision}>
+                <div>
+                  <strong>
+                    {v.label ||
+                      t[
+                        v.kind === "manual"
+                          ? "manual"
+                          : v.kind === "restore"
+                            ? "restored"
+                            : "automatic"
+                      ]}{" "}
+                    · #{v.revision}
+                  </strong>
+                  <small>
+                    {new Date(v.createdAt).toLocaleString(language)}
+                  </small>
+                </div>
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => restore(v.revision)}
+                >
+                  {t.restore}
+                </button>
+              </div>
+            ))}
+          </div>
+        </Modal>
+      )}
+      {modal === "export" && book && (
+        <Modal label={t.printTitle} onClose={() => setModal(null)} busy={busy}>
+          <p className="modal-intro">{t.printIntro}</p>
+          <label>
+            {t.exportScope}
+            <select
+              value={scope}
+              disabled={busy}
+              onChange={(e) => {
+                setScope(e.target.value);
+                setAccepted(false);
+              }}
+            >
+              {["all", "interior", "covers"].map((s) => (
+                <option value={s} key={s}>
+                  {t[s]} ·{" "}
+                  {s === "all"
+                    ? book.pageCount + 2
+                    : s === "interior"
+                      ? book.pageCount
+                      : 2}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="small-note">{t.exportInfo}</p>
+          <label className="bleed-option">
+            <input
+              type="checkbox"
+              checked={bleed}
+              disabled={busy}
+              onChange={(e) => setBleed(e.target.checked)}
+            />
+            <div>
+              <strong>{t.bleed}</strong>
+              <small>{bleed ? t.bleedHint : t.noBleed}</small>
+            </div>
+          </label>
+          <div className="preflight">
+            <h3>{t.review}</h3>
+            {warnings.length ? (
+              <>
+                <div className="warning-list">
+                  {warnings.map((w, i) => (
+                    <div key={i}>
+                      <span>
+                        ⚠ {pageLabel(book.pages[w.page], w.page, t)}:{" "}
+                        {w.type === "empty"
+                          ? t.emptyFrame
+                          : `${t.lowRes} (${w.dpi} DPI)`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <label className="warning-accept">
+                  <input
+                    type="checkbox"
+                    checked={accepted}
+                    disabled={busy}
+                    onChange={(e) => setAccepted(e.target.checked)}
+                  />
+                  {t.warningAccept}
+                </label>
+              </>
+            ) : (
+              <p className="good-quality">{t.good}</p>
+            )}
+          </div>
+          <button
+            className="primary download-pdf"
+            disabled={busy || (warnings.length > 0 && !accepted)}
+            onClick={print}
+          >
+            {busy
+              ? `${t.exporting} ${Math.round(progress * 100)}%`
+              : t.downloadPdf}
+          </button>
+          <p className="export-footer">{t.bleedFooter}</p>
+        </Modal>
+      )}
+    </>
+  );
 }
-createRoot(document.getElementById('root')).render(<React.StrictMode><App /></React.StrictMode>);
+function BookCard({ record, cover, t, onOpen, onDelete, onCopy, busy }) {
+  return (
+    <article className="book-card">
+      <button className="book-card-open" onClick={onOpen} disabled={busy}>
+        <div className="card-cover">
+          {cover ? <img src={cover} alt="" loading="lazy" /> : <span>m✳</span>}
+        </div>
+        <h3>{record.title || t.blankBook}</h3>
+        <p>
+          {record.pageCount} {t.pages} {t.coversSeparate}
+        </p>
+        <small>{new Date(record.updatedAt).toLocaleDateString()}</small>
+      </button>
+      <div className="card-actions">
+        <button onClick={onCopy} disabled={busy}>
+          {t.duplicateBook}
+        </button>
+        <button onClick={onDelete} disabled={busy}>
+          {t.deleteBook}
+        </button>
+      </div>
+    </article>
+  );
+}
+createRoot(document.getElementById("root")).render(<App />);

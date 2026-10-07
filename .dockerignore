@@ -6,3 +6,4 @@ playwright-report
 *.local
 __pycache__
 deploy/test_*.py
+.matiane-data

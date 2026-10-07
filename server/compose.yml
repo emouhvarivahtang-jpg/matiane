@@ -1,0 +1,26 @@
+services:
+  accounts:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      NODE_ENV: production
+      PUBLIC_ORIGIN: https://matiane.57.129.177.67.sslip.io
+      SECURE_COOKIES: "true"
+      TRUST_PROXY: "true"
+      DATA_DIR: /data
+      PORT: "3000"
+    volumes:
+      - account-data:/data
+    ports:
+      - "127.0.0.1:3001:3000"
+    mem_limit: 768m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "/app/server/health.js"]
+      interval: 10s
+      timeout: 4s
+      start_period: 20s
+      retries: 3
+volumes:
+  account-data:
