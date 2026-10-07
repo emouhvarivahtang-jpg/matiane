@@ -1,4 +1,12 @@
-export const uid = () => crypto.randomUUID();
+export const uid = () => {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  // getRandomValues is also available on HTTP origins such as a VPS IP address.
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map(value => value.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+};
 export const COLORS = ['#FAF8F3', '#FFFFFF', '#EBDCCD', '#E5E9DF', '#DCE6E9', '#E8D5D3', '#34443C', '#292A28'];
 export const LAYOUTS = ['editorial', 'full', 'pair', 'diptych', 'grid', 'gallery'];
 export const CAPACITY = { editorial: 1, full: 1, pair: 2, diptych: 2, grid: 4, gallery: 1 };

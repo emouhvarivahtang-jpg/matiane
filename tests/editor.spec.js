@@ -2,6 +2,43 @@ import { test, expect } from '@playwright/test';
 import { PDFDocument } from 'pdf-lib';
 import fs from 'node:fs/promises';
 
+test('creates and saves a book on an insecure HTTP origin', async ({ page }) => {
+  const errors = []; page.on('pageerror', error => errors.push(error.message));
+  // Serve real application bytes from the local build under a non-localhost HTTP origin.
+  // This exercises actual browser API availability without needing external DNS/networking.
+  const localOrigin = process.env.MATIANE_TEST_URL || 'http://127.0.0.1:5173';
+  await page.route('http://matiane.test/**', async route => {
+    const url = new URL(route.request().url());
+    const response = await page.request.get(new URL(url.pathname + url.search, localOrigin).href);
+    await route.fulfill({ response });
+  });
+  await page.goto('http://matiane.test/');
+  expect(await page.evaluate(() => window.isSecureContext)).toBe(false);
+  expect(await page.evaluate(() => typeof crypto.randomUUID)).toBe('undefined');
+  page.on('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: 'Project', exact: true }).click();
+  await page.getByRole('button', { name: 'New book', exact: true }).click();
+  await expect(page.locator('.page-thumb')).toHaveCount(1);
+  await page.locator('input[type=file]').first().setInputFiles('public/photos/mountains.jpg');
+  await page.getByRole('button', { name: 'Your photographs: mountains.jpg', exact: true }).click();
+  await expect(page.locator('.page-wrapper img')).toBeVisible();
+  await expect(page.locator('.save-indicator')).toHaveText('Saved on this device');
+  await page.reload();
+  await expect(page.locator('.page-thumb')).toHaveCount(1);
+  await expect(page.locator('.page-wrapper img')).toBeVisible();
+  await page.getByRole('tab', { name: 'Caption', exact: true }).click();
+  await page.getByLabel('Your words').fill('თბილისი — memories');
+  await page.getByRole('button', { name: 'Export book', exact: true }).click();
+  await page.getByLabel('I have reviewed these warnings and want to export anyway.').check();
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download print PDF' }).click();
+  const download = await downloading;
+  const pdf = await PDFDocument.load(await fs.readFile(await download.path()));
+  expect(pdf.getPageCount()).toBe(1);
+  await page.unrouteAll({ behavior: 'wait' });
+  expect(errors).toEqual([]);
+});
+
 test('uploads, edits, saves locally, and switches languages', async ({ page }) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto('/');
