@@ -390,7 +390,7 @@ test("legacy local draft migrates safely on HTTP and mobile studio fits", async 
     path: info.outputPath("mobile.png"),
     fullPage: true,
   });
-  await page.unrouteAll({ behavior: "wait" });
+  await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 test("desktop spread presentation", async ({ page }, info) => {
   await page.setViewportSize({ width: 1440, height: 1000 });

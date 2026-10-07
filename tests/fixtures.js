@@ -36,7 +36,10 @@ export const test = base.extend({
       });
     }
     await use(page);
-    if (relay) await page.context().unrouteAll({ behavior: "wait" });
+    // Unrouting releases pending browser requests. Their route callbacks may
+    // still be awaiting TLS responses; ignore cancellation errors only after
+    // the test has finished, before its request context is disposed.
+    if (relay) await page.context().unrouteAll({ behavior: "ignoreErrors" });
   },
 });
 export { expect };
