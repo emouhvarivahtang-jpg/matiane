@@ -12,7 +12,7 @@ changed=0
 command -v nginx >/dev/null
 command -v certbot >/dev/null
 [[ $EUID -eq 0 ]]
-curl --noproxy '*' -fsS --max-time 10 http://127.0.0.1:3001/api/health >/dev/null
+curl --noproxy '*' -fsS --max-time 10 http://127.0.0.1:3001/api/health | grep -q '"status"[[:space:]]*:[[:space:]]*"ok"' 
 getent ahostsv4 "$hostname" | awk '$1 == "57.129.177.67" { found=1 } END { exit !found }'
 if [[ -e $config ]]; then
   [[ $(head -n 1 "$config") == "$marker" ]] || { printf 'Unrelated Nginx configuration; stopped.\n' >&2; exit 1; }
@@ -69,7 +69,12 @@ server {
         try_files \$uri =404;
         add_header Cache-Control "public, max-age=31536000, immutable";
     }
-    location = /index.html { add_header Cache-Control "no-store"; }
+    location = /index.html {
+        add_header Cache-Control "no-store";
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy same-origin always;
+        add_header X-Frame-Options DENY always;
+    }
     location = /deploy-info.json { add_header Cache-Control "no-store"; }
     location / { try_files \$uri \$uri/ /index.html; }
 }
@@ -88,6 +93,6 @@ render tls > "$work_dir/site"
 install -m 644 "$work_dir/site" "$config"
 nginx -t
 systemctl reload nginx
-curl --noproxy '*' -fsS --max-time 15 --resolve "$hostname:443:127.0.0.1" "https://$hostname/api/health" >/dev/null
+curl --noproxy '*' -fsS --max-time 15 --resolve "$hostname:443:127.0.0.1" "https://$hostname/api/health" | grep -q '"status"[[:space:]]*:[[:space:]]*"ok"' 
 systemctl enable --now certbot.timer >/dev/null
 printf 'Matiane HTTPS gateway ready.\n'
