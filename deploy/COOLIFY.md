@@ -12,8 +12,8 @@ directory through `/var/www/matiane:/var/www/matiane`. Runtime settings:
 
 - `MATIANE_PUBLICATION_ROOT=/var/www/matiane`
 - `MATIANE_CHECK_HOST=57.129.177.67`
-- `MATIANE_CHECK_URL=http://host.docker.internal`
-- Custom Docker options: `--volume /var/www/matiane:/var/www/matiane --add-host host.docker.internal:host-gateway`
+- `MATIANE_CHECK_URL=http://57.129.177.67`
+- Coolify directory storage: host `/var/www/matiane`, mount `/var/www/matiane`.
 - Internal port 80, HTTP health check, no mapped public port or generated domain.
 
 Coolify supplies the actual Git revision in `SOURCE_COMMIT`. Publication uses a
@@ -35,8 +35,11 @@ application. It checks registered public GitHub branches every 60 seconds over
 HTTPS, then asks the local Coolify queue to deploy a new revision. GitHub webhook
 administration and an API credential inside the worker are unnecessary.
 
-The worker mounts `/var/run/docker.sock:/var/run/docker.sock` and keeps its
-heartbeat in a named volume at `/state`. The socket grants server administration
+The worker uses a Coolify host-file storage for `/var/run/docker.sock`, mounted
+at the same path, and a persistent named volume at `/state`. Set custom Docker
+options to `--cap-drop ALL`. Register mounts with the **Storages** API rather than
+custom Docker options: Coolify 4.4.1 ignores `--volume` and `--add-host` there.
+The socket grants server administration
 rights; only trusted maintenance code should receive it. It has no public
 listener. Its own source revision is pinned and is updated deliberately.
 

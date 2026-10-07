@@ -52,7 +52,7 @@ mv -Tf "$pointer" "$root/current"
 switched=1
 verify() {
   file="$1"
-  wget -q -T 10 -O "$content/.served-file" --header="Host: ${MATIANE_CHECK_HOST:-57.129.177.67}" "${MATIANE_CHECK_URL:-http://host.docker.internal}/$file" || return 1
+  wget -q -T 10 -O "$content/.served-file" --header="Host: ${MATIANE_CHECK_HOST:-57.129.177.67}" "${MATIANE_CHECK_URL:-http://57.129.177.67}/$file" || return 1
   cmp -s "$release/$file" "$content/.served-file"
 }
 verify index.html

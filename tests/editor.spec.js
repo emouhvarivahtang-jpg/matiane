@@ -7,12 +7,16 @@ test('creates and saves a book on an insecure HTTP origin', async ({ page }) => 
   // Serve real application bytes from the local build under a non-localhost HTTP origin.
   // This exercises actual browser API availability without needing external DNS/networking.
   const localOrigin = process.env.MATIANE_TEST_URL || 'http://127.0.0.1:5173';
-  await page.route('http://matiane.test/**', async route => {
-    const url = new URL(route.request().url());
-    const response = await page.request.get(new URL(url.pathname + url.search, localOrigin).href);
-    await route.fulfill({ response });
-  });
-  await page.goto('http://matiane.test/');
+  const target = new URL(localOrigin);
+  const useRealHttpOrigin = target.protocol === 'http:' && !['localhost', '127.0.0.1', '[::1]'].includes(target.hostname);
+  if (!useRealHttpOrigin) {
+    await page.route('http://matiane.test/**', async route => {
+      const url = new URL(route.request().url());
+      const response = await page.request.get(new URL(url.pathname + url.search, localOrigin).href);
+      await route.fulfill({ response });
+    });
+  }
+  await page.goto(useRealHttpOrigin ? localOrigin : 'http://matiane.test/');
   expect(await page.evaluate(() => window.isSecureContext)).toBe(false);
   expect(await page.evaluate(() => typeof crypto.randomUUID)).toBe('undefined');
   page.on('dialog', dialog => dialog.accept());
