@@ -236,7 +236,7 @@ function App() {
     return () => window.removeEventListener("beforeunload", leave);
   }, [book, user, localStatus, cloudStatus, uploading, busy]);
   useEffect(() => {
-    if (location.origin !== new URL(SECURE_STUDIO).origin) return;
+    if (!ready || location.origin !== new URL(SECURE_STUDIO).origin) return;
     const receive = async (e) => {
       if (e.origin !== oldOrigin || e.source !== window.opener) return;
       if (e.data?.type === "matiane-ping") {
@@ -246,7 +246,11 @@ function App() {
       if (e.data?.type !== "matiane-transfer") return;
       try {
         const imported = forkBook(validateBook(e.data.book));
-        await localSaveBook(imported);
+        await localSaveBook(
+          imported,
+          currentUser.current?.id || "guest",
+          currentUser.current ? { pending: true } : null,
+        );
         openBook(imported, null);
         setToast(t.transferDone);
         e.source.postMessage({ type: "matiane-transfer-done" }, oldOrigin);
@@ -603,10 +607,12 @@ function App() {
     try {
       const snapshot = await portableBook(book);
       const ack = await new Promise((resolve) => {
+        let sent = false;
         const receive = (e) => {
           if (e.origin !== new URL(SECURE_STUDIO).origin || e.source !== popup)
             return;
-          if (e.data?.type === "matiane-ready") {
+          if (e.data?.type === "matiane-ready" && !sent) {
+            sent = true;
             popup.postMessage(
               { type: "matiane-transfer", book: snapshot },
               new URL(SECURE_STUDIO).origin,

@@ -177,7 +177,14 @@ export function PhotoFrame({
     >
       {photo ? (
         <img
-          src={photo.src}
+          src={
+            tiny
+              ? photo.thumbnail ||
+                (photo.src.startsWith("/api/photos/")
+                  ? photo.src + "?thumbnail=1"
+                  : photo.src)
+              : photo.src
+          }
           alt={photo.name}
           draggable={false}
           style={{

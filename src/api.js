@@ -56,7 +56,12 @@ export class CloudWriter {
           let remote = this.uploads.get(photo.src);
           if (!remote) {
             const blob = await (await fetch(photo.src)).blob();
-            remote = await api("/photos", { method: "POST", body: blob });
+            try {
+              remote = await api("/photos", { method: "POST", body: blob });
+            } catch (e) {
+              if (e.code === "storage_quota") this.uploads.clear();
+              throw e;
+            }
             this.uploads.set(photo.src, remote);
           }
           photos.push({
@@ -95,6 +100,7 @@ export class CloudWriter {
           return this.info;
         } catch (e) {
           if (e.code === "version_conflict") this.conflict = true;
+          if (e.code === "invalid_photo_reference") this.uploads.clear();
           throw e;
         }
       });

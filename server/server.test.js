@@ -361,3 +361,52 @@ test("storage quota and HTTPS policy are enforced", async (t) => {
   assert.match(r.headers.get("set-cookie"), /Secure/);
   assert.match(r.cookie, /^__Host-matiane-session=/);
 });
+
+test("failed imports release incomplete uploads while keeping saved book photos", async (t) => {
+  const a = await photo(),
+    b = await sharp({
+      create: { width: 1200, height: 800, channels: 3, background: "#866d59" },
+    })
+      .jpeg()
+      .toBuffer(),
+    c = await sharp({
+      create: { width: 1200, height: 800, channels: 3, background: "#9c2345" },
+    })
+      .jpeg()
+      .toBuffer();
+  const f = await setup(t, { photoQuota: a.length + b.length }),
+    u = await f.register("incomplete@example.invalid");
+  const first = await f.request("/photos", {
+    method: "POST",
+    body: a,
+    user: u,
+  });
+  const book = newBook();
+  book.photos = [{ id: "kept", name: "saved.jpg", ...first.data }];
+  book.pages[0].photos = ["kept"];
+  assert.equal(
+    (await f.request("/books", { method: "POST", body: { book }, user: u }))
+      .status,
+    201,
+  );
+  assert.equal(
+    (await f.request("/photos", { method: "POST", body: b, user: u })).status,
+    201,
+  );
+  assert.equal(
+    (await f.request("/photos", { method: "POST", body: c, user: u })).status,
+    413,
+  );
+  assert.equal(
+    (await f.request("/books", { user: u })).data.storageUsed,
+    a.length,
+  );
+  assert.equal(
+    (await f.request(first.data.src.slice(4), { user: u })).status,
+    200,
+  );
+  assert.equal(
+    (await f.request("/photos", { method: "POST", body: b, user: u })).status,
+    201,
+  );
+});

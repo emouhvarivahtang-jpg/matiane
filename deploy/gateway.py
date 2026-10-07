@@ -7,7 +7,18 @@ import base64
 import json
 import time
 from pathlib import Path
-from github_poller import docker_request, decode_docker_stream
+from github_poller import UnixHTTPConnection, decode_docker_stream
+
+def docker_request(method, route, payload=None):
+    connection=UnixHTTPConnection('localhost',timeout=240)
+    try:
+        connection.request(method,'/v1.47'+route,json.dumps(payload).encode() if payload is not None else None,{'Content-Type':'application/json'})
+        response=connection.getresponse()
+        data=response.read()
+        if response.status>=400:raise RuntimeError('Docker request failed')
+        return data
+    finally:
+        connection.close()
 
 script=Path('/app/setup-matiane-gateway.sh').read_bytes()
 encoded=base64.b64encode(script).decode()
@@ -30,7 +41,7 @@ if state.get('Running') or state.get('ExitCode')!=0:
     raise RuntimeError('Gateway installation failed')
 if json.loads(decode_docker_stream(output))!={'status':'ready'}:
     raise RuntimeError('Invalid gateway result')
-Path('/var/www/matiane/gateway-status.json').write_text(json.dumps({'status':'ready','hostname':'matiane.57.129.177.67.sslip.io','installedAt':time.time()}))
+Path('/var/www/matiane/current/gateway-status.json').write_text(json.dumps({'status':'ready','hostname':'matiane.57.129.177.67.sslip.io','installedAt':time.time()}))
 Path('/tmp/gateway-ready').touch()
 print('Matiane secure gateway configured.',flush=True)
 # This is a one-time job. Keep it alive for Coolify's deployment health check;

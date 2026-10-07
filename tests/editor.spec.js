@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { PDFDocument, decodePDFRawStream } from "pdf-lib";
 import fs from "node:fs/promises";
 const create = async (page, title = "My memories", count = 40) => {
@@ -319,14 +319,13 @@ test("account autosave, named versions, recovery login and saved photos survive 
 });
 test("legacy local draft migrates safely on HTTP and mobile studio fits", async ({
   page,
+  request,
 }, info) => {
   const base = process.env.MATIANE_TEST_URL || "http://127.0.0.1:5173";
   await page.route("http://matiane.test/**", async (route) => {
     const u = new URL(route.request().url());
     await route.fulfill({
-      response: await page.request.get(
-        new URL(u.pathname + u.search, base).href,
-      ),
+      response: await request.get(new URL(u.pathname + u.search, base).href),
     });
   });
   await page.goto("http://matiane.test/");
@@ -404,4 +403,38 @@ test("desktop spread presentation", async ({ page }, info) => {
     path: info.outputPath("desktop.png"),
     fullPage: true,
   });
+});
+
+test("moves an old IP draft to the secure studio once", async ({ page }) => {
+  test.skip(
+    !process.env.MATIANE_TEST_URL?.startsWith("https://"),
+    "Live HTTPS transfer requires both deployed origins",
+  );
+  await page.goto("http://57.129.177.67/");
+  await page.getByRole("button", { name: "New book", exact: true }).click();
+  await page.getByLabel("Book title").fill("Transferred memory");
+  await page.getByRole("button", { name: "Create book", exact: true }).click();
+  await page
+    .locator("input[type=file]")
+    .first()
+    .setInputFiles("public/photos/road.jpg");
+  await page.locator(".library-photo>button").first().click();
+  const popup = page.waitForEvent("popup");
+  await page
+    .getByRole("button", {
+      name: "Move this book to secure studio",
+      exact: true,
+    })
+    .click();
+  const secure = await popup;
+  await expect(secure.getByLabel("Book title", { exact: true })).toHaveValue(
+    "Transferred memory",
+    { timeout: 30000 },
+  );
+  await expect(secure.locator(".active-leaf img")).toBeVisible();
+  await secure.getByRole("button", { name: "← My books", exact: true }).click();
+  await expect(secure.locator(".book-card")).toHaveCount(1);
+  await expect(page.getByLabel("Book title", { exact: true })).toHaveValue(
+    "Transferred memory",
+  );
 });

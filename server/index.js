@@ -267,7 +267,7 @@ export async function createApp(options = {}) {
       "UPDATE books SET current_revision=?,title=?,page_count=?,cover=?,updated_at=? WHERE id=?",
     ).run(revision, book.title, book.pageCount, cover, timestamp, row.id);
     db.prepare(
-      "DELETE FROM versions WHERE book_id=? AND kind='auto' AND revision NOT IN (SELECT revision FROM versions WHERE book_id=? AND kind='auto' ORDER BY revision DESC LIMIT 30) AND revision<>?",
+      "DELETE FROM versions WHERE book_id=? AND kind IN ('auto','restore') AND revision NOT IN (SELECT revision FROM versions WHERE book_id=? AND kind IN ('auto','restore') ORDER BY revision DESC LIMIT 30) AND revision<>?",
     ).run(row.id, row.id, revision);
     return { id: row.id, revision, updatedAt: timestamp };
   }
@@ -493,8 +493,12 @@ export async function createApp(options = {}) {
                   "SELECT COALESCE(SUM(size),0) AS total FROM photos JOIN photo_owners USING(hash) WHERE user_id=?",
                 )
                 .get(userId).total;
-              if (!owns && usage + bytes.length > photoQuota)
+              if (!owns && usage + bytes.length > photoQuota) {
+                // Incomplete imports must not strand the account at its quota.
+                // Saved books and all retained versions keep their ownership.
+                releaseUnusedPhotos(userId);
                 fail(413, "storage_quota");
+              }
               if (!existing) {
                 const disk = await fs.statfs(dataDir);
                 if (disk.bavail * disk.bsize < bytes.length + 2 * 1024 ** 3)

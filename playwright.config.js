@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
+  timeout: process.env.MATIANE_TEST_URL ? 90000 : 30000,
   use: {
     baseURL: process.env.MATIANE_TEST_URL || "http://127.0.0.1:5173",
     headless: true,

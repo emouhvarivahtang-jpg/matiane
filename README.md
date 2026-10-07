@@ -138,3 +138,8 @@ SQLite backup. Playwright проверяет кабинет, фиксирова�
 CC BY-SA 4.0 (`public/photos/SOURCES.md`). HEIC: heic-to 1.6.5 и libheif 1.23.5,
 LGPL-3.0 / LGPL-2.1; libde265 1.0.16, LGPL-2.1. Лицензии, исходники и инструкции
 для замены библиотеки поставляются в `public/licenses/` (см. `NOTICE.txt`).
+
+Для облачного Chromium с отдельным хранилищем сертификатов прокси используется
+`MATIANE_TLS_RELAY=1`: реальные ответы сайта передаются через HTTPS-клиент Node
+с проверкой сертификатов. `ignoreHTTPSErrors` остаётся выключенным. Origin,
+cookies и пользовательские действия выполняются в браузере по адресу сайта.
