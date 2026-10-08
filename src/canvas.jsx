@@ -215,6 +215,7 @@ export function PhotoFrame({
           <button
             title={t.zoomOut}
             aria-label={t.zoomOut}
+            disabled={rect.zoom <= 1}
             onClick={() => {
               zoom(1 / 1.15);
               finish();
@@ -225,24 +226,13 @@ export function PhotoFrame({
           <button
             title={t.zoomIn}
             aria-label={t.zoomIn}
+            disabled={rect.zoom >= 5}
             onClick={() => {
               zoom(1.15);
               finish();
             }}
           >
             +
-          </button>
-          <button
-            onClick={() => {
-              change({
-                x: 50,
-                y: 50,
-                zoom: imageRect(photo, slot, { zoom: 1 }).minZoom,
-              });
-              finish();
-            }}
-          >
-            {t.fit}
           </button>
           <button
             title={t.reset}

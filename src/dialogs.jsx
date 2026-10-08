@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { errorMessage } from "./ui-text";
-import { PAGE_COUNTS, FONTS, textColor } from "./model";
+import { PAGE_COUNTS, textColor } from "./model";
+import { FONT_CATALOG } from "./fonts";
+import { fontFamily } from "./text";
+import { Eye, EyeOff } from "./icons";
 import { download } from "./download";
 export function Modal({
   label,
@@ -130,6 +133,7 @@ export function AuthDialog({ t, onClose, onAuthenticated }) {
   const [mode, setMode] = useState("login"),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
+    [showPassword, setShowPassword] = useState(false),
     [code, setCode] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -207,10 +211,11 @@ export function AuthDialog({ t, onClose, onAuthenticated }) {
             />
           </label>
         )}
-        <label>
-          {t.password}
+        <label htmlFor="account-password">{t.password}</label>
+        <div className="password-field">
           <input
-            type="password"
+            id="account-password"
+            type={showPassword ? "text" : "password"}
             required
             minLength={10}
             maxLength={256}
@@ -221,7 +226,17 @@ export function AuthDialog({ t, onClose, onAuthenticated }) {
             onChange={(e) => setPassword(e.target.value)}
             disabled={busy}
           />
-        </label>
+          <button
+            type="button"
+            aria-label={showPassword ? t.hidePassword : t.showPassword}
+            aria-pressed={showPassword}
+            title={showPassword ? t.hidePassword : t.showPassword}
+            disabled={busy}
+            onClick={() => setShowPassword((visible) => !visible)}
+          >
+            {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+          </button>
+        </div>
         {error && (
           <p role="alert" className="error-note">
             {error}
@@ -239,6 +254,7 @@ export function AuthDialog({ t, onClose, onAuthenticated }) {
               key={m}
               onClick={() => {
                 setMode(m);
+                setShowPassword(false);
                 setError("");
               }}
               disabled={busy}
@@ -273,9 +289,9 @@ export function TextDialog({ page, t, onClose, onApply }) {
             value={draft.font}
             onChange={(e) => patch({ font: e.target.value })}
           >
-            {FONTS.map((f) => (
-              <option value={f} key={f}>
-                {t[f]}
+            {FONT_CATALOG.map((f) => (
+              <option value={f.id} key={f.id}>
+                {f.name}
               </option>
             ))}
           </select>
@@ -336,12 +352,7 @@ export function TextDialog({ page, t, onClose, onApply }) {
       <div
         className="caption-sample"
         style={{
-          fontFamily:
-            draft.font === "serif"
-              ? "Noto Serif, Noto Georgian Serif"
-              : draft.font === "compact"
-                ? "Noto Compact, Noto Georgian Compact"
-                : "Noto Sans, Noto Georgian",
+          fontFamily: fontFamily(draft.font),
           fontWeight: draft.bold ? 700 : 400,
           fontStyle: draft.italic ? "italic" : "normal",
           textDecoration: draft.underline ? "underline" : "none",
@@ -351,6 +362,7 @@ export function TextDialog({ page, t, onClose, onApply }) {
       >
         {draft.caption || t.captionHint}
       </div>
+      <p className="small-note font-license-note">{t.fontHint}</p>
       <p className="small-note">{t.captionFit}</p>
       <div className="dialog-actions">
         <button className="secondary" onClick={onClose}>

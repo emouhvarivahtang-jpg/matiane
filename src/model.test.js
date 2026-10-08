@@ -7,6 +7,7 @@ import {
   spreads,
   resizeBook,
   reorderPage,
+  deletePage,
   forkBook,
   slots,
   imageRect,
@@ -76,6 +77,29 @@ describe("books, spreads and legacy drafts", () => {
     expect(copy.pages[0].photos[0]).toBe(copy.photos[0].id);
     expect(copy.pages[0].id).not.toBe(b.pages[0].id);
   });
+  it("deletes an inside page, shifts content, appends one blank and preserves covers and photos", () => {
+    for (const count of [40, 60, 80]) {
+      const book = resizeBook(demoBook(), count);
+      for (const index of [1, 3, count]) {
+        const next = validateBook(deletePage(book, index));
+        expect(next.pageCount).toBe(count);
+        expect(next.pages).toHaveLength(count + 2);
+        expect(next.pages[0]).toEqual(book.pages[0]);
+        expect(next.pages.at(-1)).toEqual(book.pages.at(-1));
+        expect(next.pages.slice(1, count)).toEqual(
+          book.pages.slice(1, -1).filter((_, i) => i + 1 !== index),
+        );
+        expect(next.pages[count].caption).toBe("");
+        expect(next.pages[count].photos).toEqual([null]);
+        expect(book.pages.some((p) => p.id === next.pages[count].id)).toBe(
+          false,
+        );
+        expect(next.photos).toEqual(book.photos);
+      }
+      expect(deletePage(book, 0)).toBe(book);
+      expect(deletePage(book, count + 1)).toBe(book);
+    }
+  });
   it("rejects unsafe photo sources, broken references and style data", () => {
     const b = demoBook();
     expect(validateBook(b).pages).toHaveLength(42);
@@ -98,7 +122,7 @@ describe("books, spreads and legacy drafts", () => {
   });
 });
 describe("photo crop and print warnings", () => {
-  it("allows cover and contain cropping and adjusts print quality for zoom", () => {
+  it("always fills the frame and adjusts print quality for zoom", () => {
     const photo = { width: 3000, height: 2000 },
       slot = { w: 100, h: 150 };
     expect(effectiveDpi(photo, slot)).toBeCloseTo(338.67, 1);
@@ -107,12 +131,39 @@ describe("photo crop and print warnings", () => {
       1,
     );
     const fit = imageRect(photo, slot, { x: 50, y: 50, zoom: 0.1 });
-    expect(fit.w).toBeCloseTo(100);
-    expect(fit.h).toBeCloseTo(66.667);
-    expect(fit.y).toBeGreaterThan(0);
+    expect(fit.w).toBeCloseTo(225);
+    expect(fit.h).toBeCloseTo(150);
+    expect(fit.y).toBe(0);
     const zoomed = imageRect(photo, slot, { x: 0, y: 100, zoom: 2 });
     expect(zoomed.x).toBeCloseTo(0);
     expect(zoomed.y + zoomed.h).toBeCloseTo(slot.h);
+  });
+  it("cannot expose blank space for any template, orientation, zoom or pan position", () => {
+    for (const layout of [
+      "editorial",
+      "full",
+      "pair",
+      "diptych",
+      "grid",
+      "gallery",
+    ])
+      for (const slot of slots(layout))
+        for (const photo of [
+          { width: 3000, height: 2000 },
+          { width: 2000, height: 3000 },
+          { width: 2000, height: 2000 },
+        ])
+          for (const zoom of [0.1, 1, 2, 5, 10])
+            for (const x of [-20, 0, 50, 100, 120]) {
+              const rect = imageRect(photo, slot, { zoom, x, y: x });
+              expect(rect.x).toBeLessThanOrEqual(0);
+              expect(rect.y).toBeLessThanOrEqual(0);
+              expect(rect.x + rect.w + 1e-9).toBeGreaterThanOrEqual(slot.w);
+              expect(rect.y + rect.h + 1e-9).toBeGreaterThanOrEqual(slot.h);
+            }
+    const old = demoBook();
+    old.pages[0].crops[0].zoom = 0.2;
+    expect(validateBook(old).pages[0].crops[0].zoom).toBe(1);
   });
   it("preflights the requested pages including the front cover", () => {
     const b = newBook();

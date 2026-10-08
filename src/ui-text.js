@@ -1,6 +1,27 @@
 import { translations } from "./i18n";
 const extra = {
   en: {
+    showPassword: "Show password",
+    hidePassword: "Hide password",
+    deletePageConfirm:
+      "Delete this page? Following pages will move forward and an empty page will be added at the end. You can undo this.",
+    fontHint:
+      "10 free typefaces for English, Russian and Georgian. All allow commercial use.",
+    pdfLayout: "PDF layout",
+    pdfPages: "Individual A5 pages · recommended",
+    pdfSpreads: "Facing spreads · reading order",
+    pdfPagesHint:
+      "Most printers accept individual pages and arrange them for their binding process. Send inside pages and covers separately when requested.",
+    pdfSpreadsHint:
+      "Facing pages 2–3, 4–5… on 296 × 210 mm spreads. First and last inside pages stay A5; no blank pages are added. Choose this if your printer requests reading-order spreads.",
+    coverPrintHint:
+      "The cover spread shows back / front without a spine. Hard-cover wrap and spine dimensions require the printer’s template.",
+    spreadBleedHint:
+      "302 × 216 mm spreads with 3 mm outer bleed. First/last inside pages: 154 × 216 mm. No extra bleed at the centre fold.",
+    spreadNoBleed:
+      "296 × 210 mm spreads; first/last inside pages: 148 × 210 mm. No bleed.",
+    exportInfo:
+      "RGB PDF with embedded fonts and high-resolution photographs. Confirm bleed, colour profile and binding requirements with your printer.",
     myBooks: "My books",
     account: "Sign in",
     logout: "Sign out",
@@ -116,6 +137,25 @@ const extra = {
     saved: "Saved on this device",
   },
   ru: {
+    showPassword: "Показать пароль",
+    hidePassword: "Скрыть пароль",
+    deletePageConfirm:
+      "Удалить эту страницу? Следующие сдвинутся, а в конец добавится пустая страница. Действие можно отменить.",
+    fontHint:
+      "10 бесплатных шрифтов для английского, русского и грузинского. Все разрешены для коммерческого использования.",
+    pdfLayout: "Формат PDF",
+    pdfPages: "Постраничный A5 · рекомендуемый",
+    pdfSpreads: "Развороты · в порядке чтения",
+    pdfPagesHint:
+      "Большинство типографий принимает отдельные страницы и делает спуск под своё оборудование и переплёт. По запросу выгружайте внутренние страницы и обложки отдельно.",
+    pdfSpreadsHint:
+      "Соседние страницы 2–3, 4–5… на разворотах 296 × 210 мм. Первая и последняя внутренние страницы остаются A5; пустые страницы не добавляются. Выбирайте, если типография просит развороты в порядке чтения.",
+    coverPrintHint:
+      "Разворот обложек: задняя / передняя, без корешка. Для твёрдого переплёта размеры корешка и загибов берутся из шаблона типографии.",
+    spreadBleedHint:
+      "Развороты 302 × 216 мм с внешними вылетами 3 мм. Первый/последний лист: 154 × 216 мм. В центре дополнительного вылета нет.",
+    spreadNoBleed:
+      "Развороты 296 × 210 мм; первый/последний лист: 148 × 210 мм. Без вылетов.",
     studio: "Студия фотокниг",
     tagline: "Истории, которые хочется сохранить.",
     myBooks: "Мои книги",
@@ -289,7 +329,7 @@ const extra = {
     printTitle: "Из воспоминаний — на бумагу.",
     printIntro: "Ваша книга готова к следующей главе.",
     exportInfo:
-      "Отдельные страницы A5, встроенные шрифты, фотографии в исходном разрешении. PDF в RGB — согласуйте требования с типографией.",
+      "PDF в RGB со встроенными шрифтами и фотографиями высокого разрешения. Уточните вылеты, цветовой профиль и требования к переплёту у типографии.",
     bleed: "Вылеты 3 мм",
     bleedHint: "PDF 154 × 216 мм с областью обрезки A5.",
     noBleed: "PDF 148 × 210 мм без вылетов",
@@ -324,6 +364,27 @@ const extra = {
       "Примеры нужны для знакомства. Для печати используйте свои фото высокого разрешения.",
   },
   ka: {
+    showPassword: "პაროლის ჩვენება",
+    hidePassword: "პაროლის დამალვა",
+    deletePageConfirm:
+      "წავშალოთ ეს გვერდი? მომდევნო გვერდები წინ გადმოიწევს, ბოლოს კი ცარიელი გვერდი დაემატება. მოქმედების გაუქმება შესაძლებელია.",
+    fontHint:
+      "10 უფასო შრიფტი ინგლისური, რუსული და ქართული ტექსტისთვის. ყველა დაშვებულია კომერციული გამოყენებისთვის.",
+    pdfLayout: "PDF-ის ფორმატი",
+    pdfPages: "ცალკეული A5 გვერდები · რეკომენდებული",
+    pdfSpreads: "გაშლილი გვერდები · კითხვის მიმდევრობით",
+    pdfPagesHint:
+      "სტამბების უმეტესობა იღებს ცალკეულ გვერდებს და თავად აწყობს საბეჭდ ფურცლებს აკინძვისთვის. მოთხოვნის შემთხვევაში შიდა გვერდები და ყდები ცალ-ცალკე გაიტანეთ.",
+    pdfSpreadsHint:
+      "მეზობელი გვერდები 2–3, 4–5… 296 × 210 მმ გაშლილ ფორმატში. პირველი და ბოლო შიდა გვერდი რჩება A5; ცარიელი გვერდები არ ემატება. გამოიყენეთ, თუ სტამბა ითხოვს გვერდებს კითხვის მიმდევრობით.",
+    coverPrintHint:
+      "ყდის განშლა: უკანა / წინა, ზურგის გარეშე. მყარი ყდის ზურგისა და გადაკეცვის ზომებისთვის საჭიროა სტამბის შაბლონი.",
+    spreadBleedHint:
+      "302 × 216 მმ განშლა, გარეთა კიდეებზე 3 მმ ჩამონაჭრით. პირველი/ბოლო გვერდი: 154 × 216 მმ. ცენტრში დამატებითი ჩამონაჭრი არ არის.",
+    spreadNoBleed:
+      "296 × 210 მმ განშლა; პირველი/ბოლო გვერდი: 148 × 210 მმ. ჩამონაჭრის გარეშე.",
+    exportInfo:
+      "RGB PDF ჩაშენებული შრიფტებითა და მაღალი გარჩევადობის ფოტოებით. ჩამონაჭრის, ფერის პროფილისა და აკინძვის მოთხოვნები შეათანხმეთ სტამბასთან.",
     myBooks: "ჩემი წიგნები",
     account: "შესვლა",
     logout: "გასვლა",

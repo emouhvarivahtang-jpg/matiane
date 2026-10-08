@@ -1,6 +1,9 @@
 import { test, expect } from "./fixtures";
 import { PDFDocument, decodePDFRawStream } from "pdf-lib";
 import fs from "node:fs/promises";
+import { FONT_CATALOG } from "../src/fonts.js";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 const create = async (page, title = "My memories", count = 40) => {
   await page.goto("/");
   await page.getByRole("button", { name: "New book", exact: true }).click();
@@ -107,9 +110,7 @@ test("all photos crop on canvas independently, usage labels, reorder and spreads
     })
     .click();
   const second = page.locator(".active-leaf .photo-frame").nth(1);
-  await second
-    .getByRole("button", { name: "Fit whole photo", exact: true })
-    .click();
+  await second.getByRole("button", { name: "Fill frame", exact: true }).click();
   await expect(page.locator(".photo-used")).toContainText("Used");
   await edit(page, "Move this page");
   await page.getByRole("button", { name: "Apply", exact: true }).click();
@@ -131,6 +132,109 @@ test("all photos crop on canvas independently, usage labels, reorder and spreads
   );
   await page.keyboard.press("Escape");
   expect(errors).toEqual([]);
+});
+test("deletes a page with confirmation, shifts following content, keeps covers and supports undo", async ({
+  page,
+}) => {
+  await create(page);
+  await expect(
+    page.getByRole("button", { name: "Delete page", exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Page 2", exact: true }).click();
+  await edit(page, "Delete me");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await page.getByRole("button", { name: "Page 3", exact: true }).click();
+  await edit(page, "Preserve the next page");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  const original = await downloadProject(page);
+  await page.getByRole("button", { name: "Page 2", exact: true }).click();
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.getByRole("button", { name: "Delete page", exact: true }).click();
+  await expect(page.locator(".active-leaf .page-caption")).toHaveText(
+    "Delete me",
+  );
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Delete page", exact: true }).click();
+  await expect(page.locator(".active-leaf .page-caption")).toHaveText(
+    "Preserve the next page",
+  );
+  await expect(page.locator(".page-thumb")).toHaveCount(42);
+  const changed = await downloadProject(page);
+  expect(changed.pages[40].caption).toBe("");
+  expect(changed.pages[0]).toEqual(original.pages[0]);
+  expect(changed.pages[41]).toEqual(original.pages[41]);
+  expect(changed.pages.some((p) => p.caption === "Delete me")).toBe(false);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(page.locator(".active-leaf .page-caption")).toHaveText(
+    "Delete me",
+  );
+});
+test("photo fills every changed template after zooming out and panning to the limits", async ({
+  page,
+}) => {
+  await create(page);
+  await page
+    .locator("input[type=file]")
+    .first()
+    .setInputFiles("public/photos/mountains.jpg");
+  await page.locator(".library-photo>button").first().click();
+  for (const layout of [
+    "Editorial",
+    "Full bleed",
+    "Two moments",
+    "Side by side",
+    "Four stories",
+    "The gallery",
+  ]) {
+    await page.getByRole("button", { name: layout, exact: true }).click();
+    const frame = page.locator(".active-leaf .photo-frame").first();
+    await frame.click();
+    await frame.getByRole("button", { name: "Zoom in", exact: true }).click();
+    await frame.hover();
+    await page.mouse.wheel(0, 5000);
+    await expect(
+      frame.getByRole("button", { name: "Zoom out", exact: true }),
+    ).toBeDisabled();
+    for (let i = 0; i < 25; i++) await frame.press("ArrowRight");
+    for (let i = 0; i < 25; i++) await frame.press("ArrowDown");
+    const filled = await frame.evaluate((element) => {
+      const frame = element.getBoundingClientRect(),
+        image = element.querySelector("img").getBoundingClientRect();
+      return (
+        image.left <= frame.left + 0.5 &&
+        image.top <= frame.top + 0.5 &&
+        image.right >= frame.right - 0.5 &&
+        image.bottom >= frame.bottom - 0.5
+      );
+    });
+    expect(filled, layout).toBe(true);
+  }
+  await expect(
+    page.getByRole("button", { name: "Fit whole photo", exact: true }),
+  ).toHaveCount(0);
+});
+test("password visibility is reversible and does not submit or change its value", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Create account", exact: true })
+    .click();
+  const password = page.getByLabel("Password (at least 10 characters)");
+  await password.fill("Visibility sample password");
+  await expect(password).toHaveAttribute("type", "password");
+  await page
+    .getByRole("button", { name: "Show password", exact: true })
+    .click();
+  await expect(password).toHaveAttribute("type", "text");
+  await expect(password).toHaveValue("Visibility sample password");
+  await page
+    .getByRole("button", { name: "Hide password", exact: true })
+    .click();
+  await expect(password).toHaveAttribute("type", "password");
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(page.getByRole("alert")).toHaveCount(0);
 });
 test("formats Russian and Georgian text and exports real PDFs with embedded fonts", async ({
   page,
@@ -230,6 +334,136 @@ test("HEIC decodes to a usable print image and project import preserves it", asy
     });
   await expect(page.locator(".active-leaf img")).toBeVisible();
 });
+test("exports facing spreads and individual pages with correct geometry and centre crop", async ({
+  page,
+}, info) => {
+  await create(page);
+  await page
+    .locator("input[type=file]")
+    .first()
+    .setInputFiles(["public/photos/road.jpg", "public/photos/coast.jpg"]);
+  for (const [index, photo] of [
+    [2, "road.jpg"],
+    [3, "coast.jpg"],
+  ]) {
+    await page
+      .getByRole("button", { name: `Page ${index}`, exact: true })
+      .click();
+    await page.getByRole("button", { name: "Full bleed", exact: true }).click();
+    await page
+      .getByRole("button", { name: `Your photographs: ${photo}`, exact: true })
+      .click();
+    await edit(
+      page,
+      index === 2 ? "Left leaf · მარცხენა" : "Right leaf · правая",
+    );
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+  }
+  for (const [layout, scope, bleed, count] of [
+    ["spreads", "interior", true, 21],
+    ["spreads", "covers", true, 1],
+    ["spreads", "all", false, 22],
+    ["pages", "interior", true, 40],
+  ]) {
+    await page
+      .getByRole("button", { name: "Export book", exact: true })
+      .click();
+    await page.getByLabel("PDF layout").selectOption(layout);
+    await page.getByLabel("PDF pages").selectOption(scope);
+    await page.getByLabel("Include 3 mm bleed").setChecked(bleed);
+    await page
+      .getByLabel("I have reviewed these warnings and want to export anyway.")
+      .check();
+    const downloaded = page.waitForEvent("download");
+    await page
+      .getByRole("button", { name: "Download print PDF", exact: true })
+      .click();
+    const target = info.outputPath(
+      `${layout}-${scope}-${bleed ? "bleed" : "trim"}.pdf`,
+    );
+    await (await downloaded).saveAs(target);
+    const doc = await PDFDocument.load(await fs.readFile(target));
+    expect(doc.getPageCount()).toBe(count);
+    const b = bleed ? 3 : 0;
+    for (const [index, sheet] of doc.getPages().entries()) {
+      const single =
+        layout === "pages" ||
+        (scope !== "covers" &&
+          (index === (scope === "all" ? 1 : 0) || index === count - 1));
+      expect(sheet.getWidth()).toBeCloseTo(
+        (((single ? 148 : 296) + b * 2) * 72) / 25.4,
+      );
+      expect(sheet.getTrimBox().width).toBeCloseTo(
+        ((single ? 148 : 296) * 72) / 25.4,
+      );
+      expect(sheet.getTrimBox().height).toBeCloseTo((210 * 72) / 25.4);
+      expect(sheet.getTrimBox().x).toBeCloseTo((b * 72) / 25.4);
+    }
+    if (layout === "spreads" && scope === "interior") {
+      const sheet = doc.getPage(1),
+        contents = sheet.node.Contents();
+      const stream = Buffer.from(
+        decodePDFRawStream(doc.context.lookup(contents.get(0))).decode(),
+      ).toString();
+      const boxes = [
+        ...stream.matchAll(
+          /([\d.e-]+) ([\d.e-]+) ([\d.e-]+) ([\d.e-]+) re\nW\nn/g,
+        ),
+      ].map((match) => match.slice(1).map(Number));
+      expect(boxes).toHaveLength(2);
+      expect(boxes[0][0]).toBeCloseTo(0);
+      expect(boxes[0][0] + boxes[0][2]).toBeCloseTo((151 * 72) / 25.4);
+      expect(boxes[1][0]).toBeCloseTo((151 * 72) / 25.4);
+      expect(boxes[1][0] + boxes[1][2]).toBeCloseTo((302 * 72) / 25.4);
+    }
+  }
+});
+test("all free typefaces render Georgian and Cyrillic and embed both weights in PDF", async ({
+  page,
+}, info) => {
+  test.setTimeout(180000);
+  await create(page);
+  let index = 2;
+  for (const font of FONT_CATALOG) {
+    for (const bold of [false, true]) {
+      await page
+        .getByRole("button", { name: `Page ${index++}`, exact: true })
+        .click();
+      await edit(page, "თბილისი · ᲗᲑᲘᲚᲘᲡᲘ · Москва · Memories");
+      await expect(page.getByLabel("Typography").locator("option")).toHaveCount(
+        10,
+      );
+      await page.getByLabel("Typography").selectOption(font.id);
+      if (bold)
+        await page.getByRole("button", { name: "Bold", exact: true }).click();
+      await expect(page.locator(".caption-sample")).toHaveCSS(
+        "font-family",
+        /.+/,
+      );
+      await page.getByRole("button", { name: "Apply", exact: true }).click();
+      await page.evaluate(() => document.fonts.ready);
+    }
+  }
+  await page.getByRole("button", { name: "Export book", exact: true }).click();
+  await page.getByLabel("PDF pages").selectOption("interior");
+  await page
+    .getByLabel("I have reviewed these warnings and want to export anyway.")
+    .check();
+  const downloaded = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download print PDF", exact: true })
+    .click();
+  const target = info.outputPath("all-free-fonts.pdf");
+  await (await downloaded).saveAs(target);
+  const { stdout } = await promisify(execFile)("pdftotext", [
+    "-layout",
+    target,
+    "-",
+  ]);
+  for (const text of ["თბილისი", "ᲗᲑᲘᲚᲘᲡᲘ", "Москва", "Memories"])
+    expect(stdout.split(text)).toHaveLength(21);
+  expect(stdout).not.toContain("�");
+});
 test("account autosave, named versions, recovery login and saved photos survive logout", async ({
   page,
 }) => {
@@ -238,6 +472,9 @@ test("account autosave, named versions, recovery login and saved photos survive 
     "Accounts require HTTPS",
   );
   await create(page, "Cloud original");
+  await edit(page, "თბილისი · моя книга");
+  await page.getByLabel("Typography").selectOption("firago");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
   await page
     .locator("input[type=file]")
     .first()
@@ -302,6 +539,7 @@ test("account autosave, named versions, recovery login and saved photos survive 
   await expect(page.locator(".cloud-books .book-card")).toHaveCount(1);
   await page.locator(".cloud-books .book-card-open").click();
   await expect(page.locator(".active-leaf img")).toBeVisible();
+  expect((await downloadProject(page)).pages[0].font).toBe("firago");
   expect(
     await page.locator(".active-leaf img").evaluate((e) => e.naturalWidth),
   ).toBeGreaterThan(0);

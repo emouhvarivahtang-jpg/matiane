@@ -251,6 +251,45 @@ body {
   color: #a34938 !important;
   line-height: 1.6;
 }
+.password-field {
+  position: relative;
+  margin-top: 8px;
+}
+.modal .password-field input {
+  width: 100%;
+  padding-right: 48px;
+  margin-top: 0;
+}
+.password-field button {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  color: #5a6a50;
+}
+.password-field button:hover {
+  background: #eef0e8;
+}
+.delete-page-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px;
+  color: #984d3c;
+  font-size: 10px;
+}
+.delete-page-button:disabled {
+  opacity: 0.4;
+}
+.frame-controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
 .text-setting-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -1,3 +1,5 @@
+import { FONTS } from "./fonts.js";
+export { FONTS } from "./fonts.js";
 export const uid = () => {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
   const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -41,7 +43,6 @@ export const CAPACITY = {
   gallery: 1,
   text: 0,
 };
-export const FONTS = ["serif", "sans", "compact"];
 export const defaultCrop = () => ({ x: 50, y: 50, zoom: 1 });
 export const newCrop = defaultCrop;
 export const newPage = (photoId = null, kind = "page") => ({
@@ -166,21 +167,20 @@ export function darkColor(hex) {
 export const textColor = (page) =>
   page.textColor ||
   (page.layout === "full" || darkColor(page.color) ? "#FFFFFF" : "#30332D");
-// Millimetre geometry shared by canvas, DPI warnings and PDF. x/y anchor the
-// image within the frame; contain mode leaves the selected paper color visible.
+// Geometry shared by canvas, DPI warnings and PDF. The frame is always filled;
+// zoom and panning cannot reveal empty space or move the image outside it.
 export function imageRect(photo, slot, crop = defaultCrop()) {
   const cover = Math.max(slot.w / photo.width, slot.h / photo.height);
-  const contain = Math.min(slot.w / photo.width, slot.h / photo.height);
-  const zoom = Math.max(contain / cover, Math.min(5, crop.zoom));
+  const zoom = Math.max(1, Math.min(5, crop.zoom ?? 1));
   const w = photo.width * cover * zoom,
     h = photo.height * cover * zoom;
   return {
-    x: ((slot.w - w) * crop.x) / 100,
-    y: ((slot.h - h) * crop.y) / 100,
+    x: ((slot.w - w) * Math.max(0, Math.min(100, crop.x ?? 50))) / 100,
+    y: ((slot.h - h) * Math.max(0, Math.min(100, crop.y ?? 50))) / 100,
     w,
     h,
     zoom,
-    minZoom: contain / cover,
+    minZoom: 1,
     scale: cover * zoom,
   };
 }
@@ -248,6 +248,14 @@ export function reorderPage(book, from, to) {
   const pages = [...book.pages];
   const [page] = pages.splice(from, 1);
   pages.splice(to, 0, page);
+  return { ...book, pages };
+}
+export function deletePage(book, index) {
+  if (!Number.isInteger(index) || index < 1 || index > book.pageCount)
+    return book;
+  const pages = [...book.pages];
+  pages.splice(index, 1);
+  pages.splice(book.pageCount, 0, newPage());
   return { ...book, pages };
 }
 export function forkBook(book, title = book.title) {
@@ -394,7 +402,11 @@ export function validateBook(value, { allowCloud = false } = {}) {
       layout: p.layout,
       color: p.color,
       photos: p.photos,
-      crops: p.crops.map((c) => ({ x: c.x, y: c.y, zoom: c.zoom })),
+      crops: p.crops.map((c) => ({
+        x: c.x,
+        y: c.y,
+        zoom: Math.max(1, c.zoom),
+      })),
       caption: p.caption,
       font: p.font,
       fontSize: p.fontSize,

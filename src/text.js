@@ -1,26 +1,7 @@
 import { captionBox } from "./model";
-export const fontFamily = (font) =>
-  font === "serif"
-    ? '"Noto Serif", "Noto Georgian Serif", serif'
-    : font === "compact"
-      ? '"Noto Compact", "Noto Georgian Compact", sans-serif'
-      : '"Noto Sans", "Noto Georgian", sans-serif';
-export function fontName(font, bold, georgian) {
-  const base = georgian
-    ? font === "serif"
-      ? "NotoSerifGeorgian"
-      : font === "compact"
-        ? "NotoSansGeorgian-Condensed"
-        : "NotoSansGeorgian"
-    : font === "serif"
-      ? "NotoSerif"
-      : font === "compact"
-        ? "NotoSans-Condensed"
-        : "NotoSans";
-  return base.includes("Condensed")
-    ? base + (bold ? "Bold" : "")
-    : base + (bold ? "-Bold" : "-Regular");
-}
+import { fontDefinition } from "./fonts";
+export { fontName } from "./fonts";
+export const fontFamily = (font) => fontDefinition(font).family;
 export function wrapText(text, width, size, measure) {
   const lines = [];
   let line = "",

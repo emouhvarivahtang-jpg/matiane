@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   ArrowRight,
   LoaderCircle,
+  Trash2,
 } from "./icons";
 import {
   PAGE_COUNTS,
@@ -30,6 +31,7 @@ import {
   spreads,
   resizeBook,
   reorderPage,
+  deletePage,
   forkBook,
   validateBook,
   portableBook,
@@ -47,6 +49,7 @@ import { Modal, AuthDialog, NewBookDialog, TextDialog } from "./dialogs";
 import { download } from "./download";
 import "./styles.css";
 import "./studio.css";
+import "./fonts.css";
 const SECURE_STUDIO = "https://matiane.57.129.177.67.sslip.io";
 const oldOrigin = "http://57.129.177.67";
 const accountsAvailable =
@@ -105,6 +108,7 @@ function App() {
     [textIndex, setTextIndex] = useState(0),
     [bleed, setBleed] = useState(true),
     [scope, setScope] = useState("all"),
+    [pdfLayout, setPdfLayout] = useState("pages"),
     [accepted, setAccepted] = useState(false),
     [progress, setProgress] = useState(0),
     [versions, setVersions] = useState([]),
@@ -549,6 +553,16 @@ function App() {
     commit(pages);
     setIndex(pages.pages.findIndex((p) => p.id === selectedId));
   }
+  function removePage() {
+    const now = current.current;
+    if (
+      now.pages[index].kind !== "page" ||
+      !window.confirm(t.deletePageConfirm)
+    )
+      return;
+    commit(deletePage(now, index));
+    setFrame(0);
+  }
   function undo() {
     if (!history.length) return;
     setFuture((f) => [...f, book]);
@@ -704,8 +718,8 @@ function App() {
     try {
       const { exportPdf } = await import("./pdf");
       download(
-        await exportPdf(book, { bleed, scope }, setProgress),
-        filename() + "-A5.pdf",
+        await exportPdf(book, { bleed, scope, layout: pdfLayout }, setProgress),
+        filename() + `-A5-${pdfLayout}-${scope}.pdf`,
         "application/pdf",
       );
       setModal(null);
@@ -1198,6 +1212,17 @@ function App() {
                     {book.pageCount} {t.pages} {t.coversSeparate}
                   </span>
                   <div>
+                    <button
+                      className="delete-page-button"
+                      disabled={page.kind !== "page" || busy}
+                      title={
+                        page.kind !== "page" ? t.coverLocked : t.deletePage
+                      }
+                      onClick={removePage}
+                    >
+                      <Trash2 size={14} />
+                      {t.deletePage}
+                    </button>
                     <IconButton
                       title={t.moveLeft}
                       disabled={index <= 1 || index > book.pageCount}
@@ -1499,6 +1524,20 @@ function App() {
         <Modal label={t.printTitle} onClose={() => setModal(null)} busy={busy}>
           <p className="modal-intro">{t.printIntro}</p>
           <label>
+            {t.pdfLayout}
+            <select
+              value={pdfLayout}
+              disabled={busy}
+              onChange={(e) => setPdfLayout(e.target.value)}
+            >
+              <option value="pages">{t.pdfPages}</option>
+              <option value="spreads">{t.pdfSpreads}</option>
+            </select>
+          </label>
+          <p className="small-note">
+            {pdfLayout === "spreads" ? t.pdfSpreadsHint : t.pdfPagesHint}
+          </p>
+          <label>
             {t.exportScope}
             <select
               value={scope}
@@ -1521,6 +1560,9 @@ function App() {
             </select>
           </label>
           <p className="small-note">{t.exportInfo}</p>
+          {scope !== "interior" && pdfLayout === "spreads" && (
+            <p className="small-note">{t.coverPrintHint}</p>
+          )}
           <label className="bleed-option">
             <input
               type="checkbox"
@@ -1530,7 +1572,15 @@ function App() {
             />
             <div>
               <strong>{t.bleed}</strong>
-              <small>{bleed ? t.bleedHint : t.noBleed}</small>
+              <small>
+                {pdfLayout === "spreads"
+                  ? bleed
+                    ? t.spreadBleedHint
+                    : t.spreadNoBleed
+                  : bleed
+                    ? t.bleedHint
+                    : t.noBleed}
+              </small>
             </div>
           </label>
           <div className="preflight">

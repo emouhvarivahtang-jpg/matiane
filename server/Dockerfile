@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
 COPY src/model.js ./src/model.js
+COPY src/fonts.js ./src/fonts.js
 COPY server/ ./server/
 RUN node --test server/server.test.js && mkdir -p /data && chown node:node /data
 ENV NODE_ENV=production PORT=3000 DATA_DIR=/data SECURE_COOKIES=true TRUST_PROXY=true

@@ -3,7 +3,9 @@ with libheif 1.23.5 and libde265 1.0.16 (LGPL-2.1-or-later).
 
 Licenses supplied alongside this notice:
 HEIC-LGPL.txt, HEIC-GPL.txt, HEIC-LGPL-2.1.txt.
-Font license: /fonts/OFL.txt. Sample photographs: /photos/SOURCES.md.
+Font sources, original licenses and GNU FreeFont corresponding source:
+/fonts/SOURCES.md (Noto, FiraGO, DejaVu, GNU FreeFont).
+Sample photographs: /photos/SOURCES.md.
 
 The uncombined heic-to package, its source modules and build instructions:
 /licenses/heic-to-1.6.5.tgz
