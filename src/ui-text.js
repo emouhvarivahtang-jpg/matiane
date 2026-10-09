@@ -1,6 +1,13 @@
 import { translations } from "./i18n";
 const extra = {
   en: {
+    pdfQuality: "PDF image quality",
+    pdfSourceQuality: "Source quality · keep image data",
+    pdfPrintQuality: "Print 300 DPI · smaller file",
+    pdfSourceHint:
+      "Photo pixels and JPEG compression are kept unchanged. Identical photos are stored once in the PDF; only used fonts are embedded.",
+    pdfPrintHint:
+      "Excess photo resolution is reduced to 300 DPI for its largest printed placement, including zoom and bleed. Hidden crop areas are removed; JPEGs are encoded at high quality. This resizes images; it is not lossless compression. Photos in the project stay unchanged.",
     showPassword: "Show password",
     hidePassword: "Hide password",
     deletePageConfirm:
@@ -137,6 +144,13 @@ const extra = {
     saved: "Saved on this device",
   },
   ru: {
+    pdfQuality: "Качество изображений PDF",
+    pdfSourceQuality: "Исходное качество · без изменения фото",
+    pdfPrintQuality: "Для печати 300 DPI · меньше файл",
+    pdfSourceHint:
+      "Пиксели и JPEG-сжатие фотографий сохраняются. Одинаковые фото хранятся в PDF один раз; встраиваются только используемые шрифты.",
+    pdfPrintHint:
+      "Избыточное разрешение фото уменьшается до 300 DPI для самого крупного размещения с учётом приближения и вылетов. Скрытые кадрированием области удаляются; JPEG сохраняется в высоком качестве. Это уменьшение изображений, а не сжатие без потерь. Фотографии в проекте не меняются.",
     showPassword: "Показать пароль",
     hidePassword: "Скрыть пароль",
     deletePageConfirm:
@@ -364,6 +378,13 @@ const extra = {
       "Примеры нужны для знакомства. Для печати используйте свои фото высокого разрешения.",
   },
   ka: {
+    pdfQuality: "PDF-ის გამოსახულებების ხარისხი",
+    pdfSourceQuality: "საწყისი ხარისხი · უცვლელი ფოტოები",
+    pdfPrintQuality: "ბეჭდვისთვის 300 DPI · მცირე ფაილი",
+    pdfSourceHint:
+      "ფოტოს პიქსელები და JPEG-ის შეკუმშვა უცვლელია. ერთნაირი ფოტო PDF-ში ერთხელ ინახება; ჩაშენებულია მხოლოდ გამოყენებული შრიფტები.",
+    pdfPrintHint:
+      "ზედმეტი გარჩევადობა მცირდება 300 DPI-მდე ფოტოს ყველაზე დიდი საბეჭდი ზომისთვის, მასშტაბისა და ჩამონაჭრის გათვალისწინებით. კადრს გარეთ დამალული არეები იშლება; JPEG ინახება მაღალი ხარისხით. ეს გამოსახულების შემცირებაა და არა დანაკარგის გარეშე შეკუმშვა. პროექტში ფოტოები უცვლელი რჩება.",
     showPassword: "პაროლის ჩვენება",
     hidePassword: "პაროლის დამალვა",
     deletePageConfirm:

@@ -109,6 +109,7 @@ function App() {
     [bleed, setBleed] = useState(true),
     [scope, setScope] = useState("all"),
     [pdfLayout, setPdfLayout] = useState("pages"),
+    [pdfQuality, setPdfQuality] = useState("source"),
     [accepted, setAccepted] = useState(false),
     [progress, setProgress] = useState(0),
     [versions, setVersions] = useState([]),
@@ -718,8 +719,12 @@ function App() {
     try {
       const { exportPdf } = await import("./pdf");
       download(
-        await exportPdf(book, { bleed, scope, layout: pdfLayout }, setProgress),
-        filename() + `-A5-${pdfLayout}-${scope}.pdf`,
+        await exportPdf(
+          book,
+          { bleed, scope, layout: pdfLayout, quality: pdfQuality },
+          setProgress,
+        ),
+        filename() + `-A5-${pdfLayout}-${scope}-${pdfQuality}.pdf`,
         "application/pdf",
       );
       setModal(null);
@@ -1523,6 +1528,20 @@ function App() {
       {modal === "export" && book && (
         <Modal label={t.printTitle} onClose={() => setModal(null)} busy={busy}>
           <p className="modal-intro">{t.printIntro}</p>
+          <label>
+            {t.pdfQuality}
+            <select
+              value={pdfQuality}
+              disabled={busy}
+              onChange={(e) => setPdfQuality(e.target.value)}
+            >
+              <option value="source">{t.pdfSourceQuality}</option>
+              <option value="print300">{t.pdfPrintQuality}</option>
+            </select>
+          </label>
+          <p className="small-note">
+            {pdfQuality === "source" ? t.pdfSourceHint : t.pdfPrintHint}
+          </p>
           <label>
             {t.pdfLayout}
             <select

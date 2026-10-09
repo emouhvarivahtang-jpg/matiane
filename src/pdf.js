@@ -4,6 +4,7 @@ import { slots, captionBox, imageRect, textColor } from "./model";
 import { fitCaption } from "./text";
 import { fontName, fontAssets, fallbackFontName, isGeorgian } from "./fonts";
 import { pdfSheets } from "./pdf-layout";
+import { pdfImagePlan, pdfPhotoSlot, preparePdfImage } from "./pdf-images";
 const libraries = new Map();
 function loadLibrary(url, globalName) {
   if (window[globalName]) return Promise.resolve(window[globalName]);
@@ -41,7 +42,7 @@ const bytes = async (url) => {
 };
 export async function exportPdf(
   book,
-  { bleed = true, scope = "all", layout = "pages" } = {},
+  { bleed = true, scope = "all", layout = "pages", quality = "source" } = {},
   onProgress = () => {},
 ) {
   const [pdfLib, fontkit] = await Promise.all([
@@ -76,19 +77,44 @@ export async function exportPdf(
         .flatMap((p) => fontAssets(p.font, p.bold)),
     ),
   ];
+  const fontData = new Map(
+    await Promise.all(
+      names.map(async (name) => {
+        const data = await bytes(`/fonts/${name}.ttf`);
+        const face = fontkit.create(data);
+        return [name, { data, characters: new Set(face.characterSet) }];
+      }),
+    ),
+  );
+  const nameFor = (source, char) => {
+    const georgian = isGeorgian(char),
+      primary = fontName(source.font, source.bold, georgian),
+      fallback = fallbackFontName(source.font, source.bold, georgian);
+    const name = fontData.get(primary).characters.has(char.codePointAt(0))
+      ? primary
+      : fallback;
+    if (!fontData.get(name).characters.has(char.codePointAt(0)))
+      throw new Error("Unsupported text character");
+    return name;
+  };
+  const usedNames = new Set(
+    sources
+      .filter((source) => source.caption.trim())
+      .flatMap((source) =>
+        [...source.caption]
+          .filter((char) => char !== "\n")
+          .map((char) => nameFor(source, char)),
+      ),
+  );
   const fonts = new Map(
     await Promise.all(
-      names.map(async (name) => [
+      [...usedNames].map(async (name) => [
         name,
-        await doc.embedFont(await bytes(`/fonts/${name}.ttf`), {
-          subset: true,
-        }),
+        await doc.embedFont(fontData.get(name).data, { subset: true }),
       ]),
     ),
   );
-  const characterSets = new Map(
-    [...fonts].map(([name, font]) => [name, new Set(font.getCharacterSet())]),
-  );
+  const imagePlan = pdfImagePlan(book, sheets, { bleed, quality });
   const imageCache = new Map();
   const b = bleed ? 3 : 0,
     height = mm(210 + b * 2);
@@ -112,33 +138,39 @@ export async function exportPdf(
       for (const [i, originalSlot] of slots(source.layout).entries()) {
         const photo = book.photos.find((p) => p.id === source.photos[i]);
         if (!photo) continue;
-        if (!imageCache.has(photo.id)) {
-          const data = await bytes(photo.src);
-          imageCache.set(
-            photo.id,
-            data[0] === 137
-              ? await doc.embedPng(data)
-              : await doc.embedJpg(data),
-          );
+        if (!imageCache.has(photo.src)) {
+          const plan = imagePlan.get(photo.src);
+          const prepared = await preparePdfImage(await bytes(photo.src), plan);
+          const data = prepared.data;
+          imageCache.set(photo.src, {
+            area: {
+              x: prepared.area.x / plan.photo.width,
+              y: prepared.area.y / plan.photo.height,
+              w: prepared.area.w / plan.photo.width,
+              h: prepared.area.h / plan.photo.height,
+            },
+            image:
+              data[0] === 137
+                ? await doc.embedPng(data)
+                : await doc.embedJpg(data),
+          });
         }
-        const image = imageCache.get(photo.id);
-        const slot =
-          source.layout === "full"
-            ? {
-                x: -leftBleed,
-                y: -b,
-                w: 148 + leftBleed + rightBleed,
-                h: 210 + b * 2,
-              }
-            : originalSlot;
+        const { image, area } = imageCache.get(photo.src);
+        const slot = pdfPhotoSlot(
+          source,
+          originalSlot,
+          leaf,
+          sheet.length,
+          bleed,
+        );
         const x = mm(slot.x + offset),
           y = height - mm(slot.y + b + slot.h),
           w = mm(slot.w),
           h = mm(slot.h);
         const drawingSlot = slot;
         const rect = imageRect(photo, drawingSlot, source.crops[i]);
-        const imageWidth = mm(rect.w),
-          imageHeight = mm(rect.h);
+        const imageWidth = mm(area.w * rect.w),
+          imageHeight = mm(area.h * rect.h);
         page.pushOperators(
           pushGraphicsState(),
           rectangle(x, y, w, h),
@@ -146,28 +178,17 @@ export async function exportPdf(
           endPath(),
         );
         page.drawImage(image, {
-          x: mm(drawingSlot.x + offset + rect.x),
-          y: height - mm(drawingSlot.y + b + rect.y + rect.h),
+          x: mm(drawingSlot.x + offset + rect.x + area.x * rect.w),
+          y:
+            height -
+            mm(drawingSlot.y + b + rect.y + (area.y + area.h) * rect.h),
           width: imageWidth,
           height: imageHeight,
         });
         page.pushOperators(popGraphicsState());
       }
       if (source.caption.trim()) {
-        const fontFor = (char) => {
-          const georgian = isGeorgian(char),
-            primary = fontName(source.font, source.bold, georgian),
-            fallback = fallbackFontName(source.font, source.bold, georgian),
-            name = characterSets.get(primary).has(char.codePointAt(0))
-              ? primary
-              : fallback;
-          if (
-            !characterSets.get(name).has(char.codePointAt(0)) &&
-            char !== "\n"
-          )
-            throw new Error("Unsupported text character");
-          return fonts.get(name);
-        };
+        const fontFor = (char) => fonts.get(nameFor(source, char));
         const box = captionBox(source),
           textWidth = mm(box.w);
         const { size, lines } = fitCaption(
