@@ -1066,3 +1066,174 @@ body {
 .legal-footer a {
   color: inherit;
 }
+/* Cover and live text editing use the same physical geometry as the PDF. */
+.complete-cover {
+  position: relative;
+  gap: 0;
+  box-shadow: 0 8px 20px #3c483c22;
+  margin-bottom: 24px;
+}
+.complete-cover .spread-leaf {
+  box-shadow: none;
+}
+.cover-spine {
+  position: absolute;
+  overflow: hidden;
+  container-type: inline-size;
+  cursor: pointer;
+}
+.cover-spine.selected {
+  outline: 2px solid #bd8462;
+  z-index: 2;
+}
+.spine-caption {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+.spine-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  font-size: 9px;
+  opacity: 0.65;
+  white-space: nowrap;
+}
+.cover-wrap-guide {
+  position: absolute;
+  border: 1px dashed #bd8462;
+  z-index: 3;
+  pointer-events: none;
+}
+.design-fields,
+.inline-text-controls {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.inline-text-controls legend {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+.inline-text-controls label,
+.format-control,
+.cover-settings label {
+  display: block;
+  margin-top: 12px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.inline-text-controls input,
+.inline-text-controls textarea,
+.inline-text-controls select,
+.format-control select,
+.cover-settings input {
+  display: block;
+  width: 100%;
+  background: #fffefb;
+  border: 1px solid #ced4c2;
+  border-radius: 5px;
+  padding: 9px;
+  font: inherit;
+  margin-top: 5px;
+  color: #30332d;
+}
+.inline-text-controls textarea {
+  resize: vertical;
+  min-height: 95px;
+  font-size: 13px;
+}
+.inline-text-controls input[type="color"] {
+  height: 37px;
+  padding: 3px;
+}
+.inline-text-controls .format-buttons {
+  flex-wrap: wrap;
+}
+.inline-text-controls .format-buttons button {
+  padding: 9px;
+}
+.inline-text-controls .format-buttons button:last-child {
+  font-size: 10px;
+}
+.editor-mode-switch {
+  display: flex;
+  gap: 6px;
+  margin: 16px 0;
+}
+.editor-mode-switch button {
+  flex: 1;
+  padding: 10px 4px;
+  border: 1px solid #ced4c2;
+  border-radius: 5px;
+  font-size: 11px;
+}
+.editor-mode-switch .selected {
+  background: #e5e9df;
+  border-color: #657f54;
+}
+.cover-settings {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.cover-settings > p:first-child {
+  font-size: 11px;
+  margin-top: 15px;
+}
+.quality-badge {
+  max-width: calc(100% - 10px);
+  white-space: normal;
+  line-height: 1.4;
+  background: #fff0d8;
+  color: #794912;
+  opacity: 1;
+  z-index: 3;
+  font-weight: 600;
+}
+.quality-badge.poor {
+  background: #ffe1d9;
+  color: #8b332b;
+}
+.book-card .book-owner {
+  overflow-wrap: anywhere;
+  color: #59684d;
+}
+@media (min-width: 801px) {
+  .studio-grid {
+    grid-template-columns: 220px minmax(380px, 1fr) 285px;
+  }
+}
+@media (max-width: 800px) {
+  .design-fields {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  .inline-text-controls .text-setting-grid {
+    max-width: 400px;
+  }
+  .editor-mode-switch {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 520px) {
+  .complete-cover .leaf-label {
+    font-size: 8px;
+  }
+  .inline-text-controls textarea,
+  .inline-text-controls select {
+    font-size: 16px;
+  }
+}
+.frame-controls {
+  top: 8px;
+  bottom: auto;
+}
+.frame-selected .quality-badge {
+  top: 44px;
+}

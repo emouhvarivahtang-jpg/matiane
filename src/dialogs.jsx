@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { errorMessage } from "./ui-text";
-import { PAGE_COUNTS, textColor } from "./model";
-import { FONT_CATALOG } from "./fonts";
-import { fontFamily } from "./text";
+import { PAGE_COUNTS } from "./model";
 import { Eye, EyeOff } from "./icons";
 import { download } from "./download";
 export function Modal({
@@ -262,123 +260,6 @@ export function AuthDialog({ t, onClose, onAuthenticated }) {
               {t[m]}
             </button>
           ))}
-      </div>
-    </Modal>
-  );
-}
-export function TextDialog({ page, t, onClose, onApply }) {
-  const [draft, setDraft] = useState(page);
-  const patch = (next) => setDraft({ ...draft, ...next });
-  return (
-    <Modal label={t.editText} onClose={onClose}>
-      <label>
-        {t.captionLabel}
-        <textarea
-          autoFocus
-          rows={5}
-          maxLength={1000}
-          placeholder={t.captionHint}
-          value={draft.caption}
-          onChange={(e) => patch({ caption: e.target.value })}
-        />
-      </label>
-      <div className="text-setting-grid">
-        <label>
-          {t.typography}
-          <select
-            value={draft.font}
-            onChange={(e) => patch({ font: e.target.value })}
-          >
-            {FONT_CATALOG.map((f) => (
-              <option value={f.id} key={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {t.fontSize}
-          <input
-            type="number"
-            min={8}
-            max={44}
-            value={draft.fontSize}
-            onChange={(e) => patch({ fontSize: Number(e.target.value) })}
-          />
-        </label>
-        <label>
-          {t.textColor}
-          <input
-            type="color"
-            value={textColor(draft)}
-            onChange={(e) => patch({ textColor: e.target.value })}
-          />
-        </label>
-        <label>
-          {t.alignment}
-          <select
-            value={draft.align}
-            onChange={(e) => patch({ align: e.target.value })}
-          >
-            {["left", "center", "right"].map((a) => (
-              <option value={a} key={a}>
-                {t[a]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div className="format-buttons">
-        {[
-          ["bold", "B"],
-          ["italic", "I"],
-          ["underline", "U"],
-        ].map(([key, label]) => (
-          <button
-            key={key}
-            title={t[key]}
-            aria-label={t[key]}
-            aria-pressed={draft[key]}
-            className={draft[key] ? "selected" : ""}
-            onClick={() => patch({ [key]: !draft[key] })}
-          >
-            {label}
-          </button>
-        ))}
-        <button onClick={() => patch({ textColor: null })}>
-          {t.automaticColor}
-        </button>
-      </div>
-      <div
-        className="caption-sample"
-        style={{
-          fontFamily: fontFamily(draft.font),
-          fontWeight: draft.bold ? 700 : 400,
-          fontStyle: draft.italic ? "italic" : "normal",
-          textDecoration: draft.underline ? "underline" : "none",
-          color: textColor(draft),
-          background: draft.layout === "full" ? "#30332d" : draft.color,
-        }}
-      >
-        {draft.caption || t.captionHint}
-      </div>
-      <p className="small-note font-license-note">{t.fontHint}</p>
-      <p className="small-note">{t.captionFit}</p>
-      <div className="dialog-actions">
-        <button className="secondary" onClick={onClose}>
-          {t.cancel}
-        </button>
-        <button
-          className="primary"
-          disabled={
-            !Number.isFinite(draft.fontSize) ||
-            draft.fontSize < 8 ||
-            draft.fontSize > 44
-          }
-          onClick={() => onApply(draft)}
-        >
-          {t.apply}
-        </button>
       </div>
     </Modal>
   );

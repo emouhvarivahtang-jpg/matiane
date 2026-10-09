@@ -44,8 +44,10 @@ import {
 } from "./model";
 import { messages, errorMessage } from "./ui-text";
 import { api, CloudWriter } from "./api";
+import { FORMATS, bookFormat, pageSize } from "./format";
+import { TextControls } from "./text-controls";
 import { PageCanvas, Spread } from "./canvas";
-import { Modal, AuthDialog, NewBookDialog, TextDialog } from "./dialogs";
+import { Modal, AuthDialog, NewBookDialog } from "./dialogs";
 import { download } from "./download";
 import "./styles.css";
 import "./studio.css";
@@ -91,6 +93,10 @@ function App() {
     [book, setBook] = useState(null),
     [records, setRecords] = useState([]),
     [cloudBooks, setCloudBooks] = useState([]),
+    [adminBooks, setAdminBooks] = useState([]),
+    [adminTotal, setAdminTotal] = useState(0),
+    [readOnly, setReadOnly] = useState(false),
+    [spineSelected, setSpineSelected] = useState(false),
     [storage, setStorage] = useState(0);
   const [index, setIndex] = useState(0),
     [frame, setFrame] = useState(0),
@@ -105,7 +111,6 @@ function App() {
     [cloudError, setCloudError] = useState(null);
   const [unusedOnly, setUnusedOnly] = useState(false),
     [previewIndex, setPreviewIndex] = useState(0),
-    [textIndex, setTextIndex] = useState(0),
     [bleed, setBleed] = useState(true),
     [scope, setScope] = useState("all"),
     [pdfLayout, setPdfLayout] = useState("pages"),
@@ -114,7 +119,8 @@ function App() {
     [progress, setProgress] = useState(0),
     [versions, setVersions] = useState([]),
     [versionName, setVersionName] = useState("");
-  const photoInput = useRef(),
+  const captionInput = useRef(),
+    photoInput = useRef(),
     projectInput = useRef(),
     writer = useRef(null),
     current = useRef(book),
@@ -151,6 +157,14 @@ function App() {
         const remote = await api("/books");
         setCloudBooks(remote.books);
         setStorage(remote.storageUsed);
+        if (user.isAdmin) {
+          const all = await api("/admin/books");
+          setAdminBooks(all.books);
+          setAdminTotal(all.total);
+        } else {
+          setAdminBooks([]);
+          setAdminTotal(0);
+        }
       } else setCloudBooks([]);
       setRecords([...local, ...guest]);
     } catch (e) {
@@ -159,6 +173,9 @@ function App() {
   }
   useEffect(() => {
     if (ready && !book) refresh();
+    if (!ready || book || !user?.isAdmin) return;
+    const timer = setInterval(() => refresh(), 30000);
+    return () => clearInterval(timer);
   }, [ready, user, book]);
   useEffect(() => {
     document.documentElement.lang = language;
@@ -176,7 +193,7 @@ function App() {
     return localQueue.current;
   }
   useEffect(() => {
-    if (!book) return;
+    if (!book || readOnly) return;
     setLocalStatus("saving");
     const snapshot = book,
       w = writer.current,
@@ -192,7 +209,7 @@ function App() {
         });
     }, 350);
     return () => clearTimeout(timer);
-  }, [book, owner]);
+  }, [book, owner, readOnly]);
   async function saveCloud(snapshot = current.current, options = {}) {
     const w = writer.current,
       token = activeToken.current,
@@ -228,6 +245,7 @@ function App() {
     const leave = (e) => {
       if (
         book &&
+        !readOnly &&
         (localStatus !== "saved" ||
           (user && cloudStatus !== "cloudSaved") ||
           uploading ||
@@ -239,7 +257,7 @@ function App() {
     };
     window.addEventListener("beforeunload", leave);
     return () => window.removeEventListener("beforeunload", leave);
-  }, [book, user, localStatus, cloudStatus, uploading, busy]);
+  }, [book, user, localStatus, cloudStatus, uploading, busy, readOnly]);
   useEffect(() => {
     if (!ready || location.origin !== new URL(SECURE_STUDIO).origin) return;
     const receive = async (e) => {
@@ -267,9 +285,13 @@ function App() {
     window.opener?.postMessage({ type: "matiane-ready" }, oldOrigin);
     return () => window.removeEventListener("message", receive);
   }, [ready]);
-  function openBook(next, info = null) {
+  function openBook(next, info = null, review = false) {
+    next = validateBook(next, { allowCloud: true });
     activeToken.current++;
-    writer.current = currentUser.current ? new CloudWriter(info) : null;
+    writer.current =
+      currentUser.current && !review ? new CloudWriter(info) : null;
+    setReadOnly(review);
+    setSpineSelected(false);
     setBook(next);
     setLanguage(next.language);
     setIndex(0);
@@ -283,7 +305,7 @@ function App() {
     setModal(null);
   }
   function commit(next) {
-    if (busy || !current.current) return;
+    if (busy || readOnly || !current.current) return;
     setHistory((h) => [...h.slice(-29), current.current]);
     setFuture([]);
     setBook(next);
@@ -297,6 +319,7 @@ function App() {
   }
   function choosePage(at, slot, photoId) {
     setIndex(at);
+    setSpineSelected(false);
     if (slot !== undefined) setFrame(slot);
     if (photoId) assign(photoId, at, slot);
   }
@@ -312,6 +335,11 @@ function App() {
   }
   async function leaveEditor() {
     if (uploading || busy) return;
+    if (readOnly) {
+      setBook(null);
+      setReadOnly(false);
+      return;
+    }
     const snapshot = current.current,
       w = writer.current;
     setBusy(true);
@@ -344,6 +372,7 @@ function App() {
   async function authenticated(value) {
     setRecords([]);
     setCloudBooks([]);
+    setAdminBooks([]);
     setUser(value.user);
     currentUser.current = value.user;
     if (current.current) {
@@ -360,7 +389,7 @@ function App() {
     writer.current = null;
     activeToken.current++;
     try {
-      if (snapshot) {
+      if (snapshot && !readOnly) {
         let stored = false;
         try {
           await localSave(
@@ -387,6 +416,8 @@ function App() {
       setUser(null);
       setRecords([]);
       setCloudBooks([]);
+      setAdminBooks([]);
+      setReadOnly(false);
       setModal(null);
     } catch (e) {
       writer.current = w;
@@ -416,12 +447,20 @@ function App() {
   async function openCloud(record, latest = false) {
     setBusy(true);
     try {
+      if (record.ownerId && record.ownerId !== user.id) {
+        const value = await api("/admin/books/" + record.id);
+        openBook(validateBook(value.book, { allowCloud: true }), null, true);
+        return;
+      }
       const local = records.find(
         (r) => r.owner === owner && r.cloud?.id === record.id,
       );
       if (local?.cloud.pending && !latest) return await openRecord(local);
       const value = await api("/books/" + record.id);
-      openBook(value.book, { id: value.id, revision: value.revision });
+      openBook(validateBook(value.book, { allowCloud: true }), {
+        id: value.id,
+        revision: value.revision,
+      });
     } catch (e) {
       setToast(errorMessage(e, t));
     } finally {
@@ -449,6 +488,17 @@ function App() {
   async function duplicateRecord(record, remote) {
     setBusy(true);
     try {
+      if (remote && record.ownerId && record.ownerId !== user.id) {
+        const value = await api("/admin/books/" + record.id + "/copy", {
+          method: "POST",
+          body: {},
+        });
+        openBook(validateBook(value.book, { allowCloud: true }), {
+          id: value.id,
+          revision: value.revision,
+        });
+        return;
+      }
       const source = remote
         ? (await api("/books/" + record.id)).book
         : (await localLoadBook(record.id, record.owner)).book;
@@ -460,7 +510,7 @@ function App() {
     }
   }
   async function upload(files) {
-    if (uploading || !files?.length) return;
+    if (uploading || readOnly || !files?.length) return;
     setUploading(true);
     const token = activeToken.current,
       available = 200 - book.photos.length,
@@ -520,7 +570,7 @@ function App() {
     setToast(t.fillDone);
   }
   async function changeCount(count) {
-    if (count === book.pageCount) return;
+    if (readOnly || count === book.pageCount) return;
     setBusy(true);
     try {
       if (count < book.pageCount) {
@@ -547,6 +597,7 @@ function App() {
     }
   }
   function move(from, to) {
+    if (readOnly) return;
     const now = current.current,
       pages = reorderPage(now, from, to);
     if (pages === now) return;
@@ -555,6 +606,7 @@ function App() {
     setIndex(pages.pages.findIndex((p) => p.id === selectedId));
   }
   function removePage() {
+    if (readOnly) return;
     const now = current.current;
     if (
       now.pages[index].kind !== "page" ||
@@ -565,14 +617,14 @@ function App() {
     setFrame(0);
   }
   function undo() {
-    if (!history.length) return;
+    if (readOnly || !history.length) return;
     setFuture((f) => [...f, book]);
     setBook(history.at(-1));
     setIndex((i) => Math.min(i, history.at(-1).pages.length - 1));
     setHistory((h) => h.slice(0, -1));
   }
   function redo() {
-    if (!future.length) return;
+    if (readOnly || !future.length) return;
     setHistory((h) => [...h, book]);
     setBook(future.at(-1));
     setIndex((i) => Math.min(i, future.at(-1).pages.length - 1));
@@ -724,7 +776,8 @@ function App() {
           { bleed, scope, layout: pdfLayout, quality: pdfQuality },
           setProgress,
         ),
-        filename() + `-A5-${pdfLayout}-${scope}-${pdfQuality}.pdf`,
+        filename() +
+          `-${bookFormat(book).w}x${bookFormat(book).h}mm-${pdfLayout}-${scope}-${pdfQuality}.pdf`,
         "application/pdf",
       );
       setModal(null);
@@ -741,6 +794,24 @@ function App() {
       : 0,
     page = book?.pages[index],
     warnings = book ? issues(book, scope) : [];
+  const format = book ? bookFormat(book) : FORMATS.portrait;
+  function patchCover(patch) {
+    commit({
+      ...current.current,
+      cover: { ...current.current.cover, ...patch },
+    });
+  }
+  function focusText(at, spine = false) {
+    setIndex(at);
+    setSpineSelected(spine);
+    requestAnimationFrame(() => {
+      captionInput.current?.focus();
+      captionInput.current?.scrollIntoView({
+        block: "nearest",
+        behavior: "smooth",
+      });
+    });
+  }
   const usage = book
     ? new Map(
         book.photos.map((p) => [
@@ -879,6 +950,49 @@ function App() {
               {t.cloudBooks} · {Math.round(storage / 1024 / 1024)} / 1024 MB
             </p>
           )}
+          {user?.isAdmin && (
+            <section className="admin-books">
+              <h2>
+                {t.adminBooks} · {adminTotal}
+              </h2>
+              <p className="small-note">{t.adminBooksHint}</p>
+              <div className="book-grid">
+                {adminBooks.map((record) => (
+                  <BookCard
+                    key={record.id}
+                    record={record}
+                    cover={record.cover}
+                    t={t}
+                    onOpen={() => openCloud(record)}
+                    onCopy={() => duplicateRecord(record, true)}
+                    busy={busy}
+                  />
+                ))}
+              </div>
+              {adminBooks.length < adminTotal && (
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    try {
+                      const value = await api(
+                        "/admin/books?offset=" + adminBooks.length,
+                      );
+                      setAdminBooks((books) => [...books, ...value.books]);
+                      setAdminTotal(value.total);
+                    } catch (error) {
+                      setToast(errorMessage(error, t));
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  {t.loadMore}
+                </button>
+              )}
+            </section>
+          )}
           {cloudBooks.length > 0 && (
             <section className="cloud-books">
               <h2>{t.cloudBooks}</h2>
@@ -955,9 +1069,10 @@ function App() {
                   aria-label={t.untitled}
                   value={book.title}
                   maxLength={100}
+                  disabled={readOnly}
                   onChange={(e) => commit({ ...book, title: e.target.value })}
                 />
-                <span className="format-pill">A5</span>
+                <span className="format-pill">{format.label}</span>
               </div>
             </div>
             <div className="project-tools">
@@ -967,7 +1082,7 @@ function App() {
                   aria-label={t.insidePages}
                   value={book.pageCount}
                   onChange={(e) => changeCount(Number(e.target.value))}
-                  disabled={busy || uploading}
+                  disabled={busy || uploading || readOnly}
                 >
                   {PAGE_COUNTS.map((n) => (
                     <option key={n}>{n}</option>
@@ -1002,12 +1117,18 @@ function App() {
             </div>
           </div>
           <div className="save-bar">
-            <span className={cloudError ? "error-note" : ""}>
-              {t[user ? cloudStatus || "savingCloud" : localStatus]}
-            </span>
-            {user ? (
+            {readOnly && <strong>{t.adminReview}</strong>}
+            {!readOnly && (
+              <span className={cloudError ? "error-note" : ""}>
+                {t[user ? cloudStatus || "savingCloud" : localStatus]}
+              </span>
+            )}
+            {user && !readOnly ? (
               <>
-                <button onClick={showVersions} disabled={busy || uploading}>
+                <button
+                  onClick={showVersions}
+                  disabled={busy || uploading || readOnly}
+                >
                   {t.versions}
                 </button>
                 {cloudError && (
@@ -1020,21 +1141,23 @@ function App() {
                 )}
               </>
             ) : (
-              <button
-                onClick={() =>
-                  accountsAvailable ? setModal("auth") : transfer()
-                }
-                disabled={busy || uploading}
-              >
-                {accountsAvailable ? t.saveOnline : t.transfer}
-              </button>
+              !readOnly && (
+                <button
+                  onClick={() =>
+                    accountsAvailable ? setModal("auth") : transfer()
+                  }
+                  disabled={busy || uploading || readOnly}
+                >
+                  {accountsAvailable ? t.saveOnline : t.transfer}
+                </button>
+              )
             )}
             <button onClick={saveProject} disabled={busy || uploading}>
               {t.saveProject}
             </button>
             <button
               onClick={() => projectInput.current.click()}
-              disabled={busy || uploading}
+              disabled={busy || uploading || readOnly}
             >
               {t.openProject}
             </button>
@@ -1064,7 +1187,7 @@ function App() {
               </div>
               <button
                 className="upload-zone"
-                disabled={busy || uploading}
+                disabled={busy || uploading || readOnly}
                 onClick={() => photoInput.current.click()}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
@@ -1183,16 +1306,18 @@ function App() {
                     activeIndex={index}
                     activeFrame={frame}
                     onSelect={choosePage}
-                    onCrop={(at, slot, crop) => {
-                      const crops = [...current.current.pages[at].crops];
-                      crops[slot] = crop;
-                      patchPage(at, { crops });
-                    }}
-                    onText={(at) => {
-                      choosePage(at);
-                      setTextIndex(at);
-                      setModal("text");
-                    }}
+                    onCrop={
+                      readOnly
+                        ? undefined
+                        : (at, slot, crop) => {
+                            const crops = [...current.current.pages[at].crops];
+                            crops[slot] = crop;
+                            patchPage(at, { crops });
+                          }
+                    }
+                    onText={readOnly ? undefined : (at) => focusText(at)}
+                    onSpine={readOnly ? undefined : () => focusText(0, true)}
+                    spineSelected={spineSelected}
                   />
                   <IconButton
                     title={t.next}
@@ -1208,7 +1333,7 @@ function App() {
                 </div>
                 <p className="crop-instruction">{t.cropHint}</p>
                 <div className="canvas-footer">
-                  {t.format} · {t.portrait}
+                  {format.label} · {t.portrait}
                 </div>
               </div>
               <div className="filmstrip-section">
@@ -1230,14 +1355,14 @@ function App() {
                     </button>
                     <IconButton
                       title={t.moveLeft}
-                      disabled={index <= 1 || index > book.pageCount}
+                      disabled={readOnly || index <= 1 || index > book.pageCount}
                       onClick={() => move(index, index - 1)}
                     >
                       <ArrowLeft size={14} />
                     </IconButton>
                     <IconButton
                       title={t.moveRight}
-                      disabled={index < 1 || index >= book.pageCount}
+                      disabled={readOnly || index < 1 || index >= book.pageCount}
                       onClick={() => move(index, index + 1)}
                     >
                       <ArrowRight size={14} />
@@ -1252,7 +1377,7 @@ function App() {
                         defaultValue={
                           index >= 1 && index <= book.pageCount ? index : ""
                         }
-                        disabled={page.kind !== "page"}
+                        disabled={readOnly || page.kind !== "page"}
                         onBlur={(e) => {
                           const to = Number(e.target.value);
                           if (
@@ -1277,7 +1402,7 @@ function App() {
                       aria-label={pageLabel(p, i, t)}
                       aria-pressed={index === i}
                       onClick={() => choosePage(i, 0)}
-                      draggable={p.kind === "page"}
+                      draggable={!readOnly && p.kind === "page"}
                       onDragStart={(e) =>
                         e.dataTransfer.setData("text/matiane-page", p.id)
                       }
@@ -1295,7 +1420,13 @@ function App() {
                       }}
                     >
                       <div className="thumbnail-paper">
-                        <PageCanvas page={p} photos={book.photos} t={t} tiny />
+                        <PageCanvas
+                          page={p}
+                          photos={book.photos}
+                          t={t}
+                          size={pageSize(book, p)}
+                          tiny
+                        />
                       </div>
                       <span>{pageLabel(p, i, t)}</span>
                     </button>
@@ -1308,70 +1439,181 @@ function App() {
                 <h2>{t.styleTitle}</h2>
                 <p>{pageLabel(page, index, t)}</p>
               </div>
-              <div className="control-section">
-                <h3>{t.pageLayout}</h3>
-                <div className="layout-grid">
-                  {LAYOUTS.map((layout) => (
-                    <button
-                      key={layout}
-                      className={`layout-choice ${page.layout === layout ? "selected" : ""}`}
-                      aria-pressed={page.layout === layout}
-                      onClick={() => {
-                        patchPage(index, {
-                          layout,
-                          photos: Array.from(
-                            { length: CAPACITY[layout] },
-                            (_, i) => page.photos[i] || null,
-                          ),
-                          crops: Array.from(
-                            { length: CAPACITY[layout] },
-                            (_, i) => page.crops[i] || newCrop(),
-                          ),
-                        });
-                        setFrame(0);
-                      }}
-                    >
-                      <LayoutIcon layout={layout} />
-                      <span>{t[layout]}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="control-section">
-                <h3>{t.pageColor}</h3>
-                <div className="swatches">
-                  {COLORS.map((color) => (
-                    <button
-                      key={color}
-                      style={{ background: color }}
-                      aria-label={`${t.pageColor} ${color}`}
-                      aria-pressed={page.color === color}
-                      className={page.color === color ? "selected" : ""}
-                      onClick={() => patchPage(index, { color })}
-                    >
-                      {page.color === color && (
-                        <Check
-                          size={15}
-                          color={darkColor(color) ? "white" : "#454b40"}
-                        />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="control-section">
+              <div className="editor-mode-switch">
                 <button
-                  className="secondary full-width"
-                  onClick={() => {
-                    setTextIndex(index);
-                    setModal("text");
-                  }}
+                  className={page.kind !== "page" ? "selected" : ""}
+                  onClick={() => choosePage(0)}
                 >
-                  {t.editText}
+                  {t.coverEditor}
                 </button>
-                <p className="small-note">{t.cropHint}</p>
-                <p className="small-note">{t.qualityTarget}</p>
+                <button
+                  className={page.kind === "page" ? "selected" : ""}
+                  onClick={() =>
+                    choosePage(Math.max(1, Math.min(book.pageCount, index)))
+                  }
+                >
+                  {t.insidePages}
+                </button>
               </div>
+              <fieldset disabled={readOnly} className="design-fields">
+                <label className="format-control">
+                  {t.bookSize}
+                  <select
+                    aria-label={t.bookSize}
+                    value={book.format || "a5"}
+                    onChange={(event) =>
+                      commit({ ...book, format: event.target.value })
+                    }
+                  >
+                    {Object.entries(FORMATS).map(([id, dimensions]) => (
+                      <option key={id} value={id}>
+                        {dimensions.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {page.kind !== "page" && (
+                  <div className="cover-settings">
+                    <p>
+                      {t.coverSize} · {format.coverW / 10} ×{" "}
+                      {format.coverH / 10} cm
+                    </p>
+                    <label>
+                      {t.spineWidth}
+                      <input
+                        type="number"
+                        min={0}
+                        max={60}
+                        step={0.5}
+                        value={book.cover.spineWidth}
+                        onChange={(event) => {
+                          const value = Number(event.target.value);
+                          if (
+                            Number.isFinite(value) &&
+                            value >= 0 &&
+                            value <= 60
+                          )
+                            patchCover({ spineWidth: value });
+                        }}
+                      />
+                    </label>
+                    <label>
+                      {t.coverWrap}
+                      <input
+                        type="number"
+                        min={0}
+                        max={30}
+                        step={0.5}
+                        value={book.cover.wrap}
+                        onChange={(event) => {
+                          const value = Number(event.target.value);
+                          if (
+                            Number.isFinite(value) &&
+                            value >= 0 &&
+                            value <= 30
+                          )
+                            patchCover({ wrap: value });
+                        }}
+                      />
+                    </label>
+                    <button
+                      className="secondary full-width"
+                      onClick={() => focusText(0, true)}
+                    >
+                      {t.spineText}
+                    </button>
+                    <p className="small-note">{t.spineHint}</p>
+                  </div>
+                )}
+                {!spineSelected && (
+                  <div className="control-section">
+                    <h3>{t.pageLayout}</h3>
+                    <div className="layout-grid">
+                      {LAYOUTS.map((layout) => (
+                        <button
+                          key={layout}
+                          className={`layout-choice ${page.layout === layout ? "selected" : ""}`}
+                          aria-pressed={page.layout === layout}
+                          onClick={() => {
+                            patchPage(index, {
+                              layout,
+                              photos: Array.from(
+                                { length: CAPACITY[layout] },
+                                (_, i) => page.photos[i] || null,
+                              ),
+                              crops: Array.from(
+                                { length: CAPACITY[layout] },
+                                (_, i) => page.crops[i] || newCrop(),
+                              ),
+                            });
+                            setFrame(0);
+                          }}
+                        >
+                          <LayoutIcon layout={layout} />
+                          <span>{t[layout]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="control-section">
+                  <h3>{t.pageColor}</h3>
+                  <div className="swatches">
+                    {COLORS.map((color) => (
+                      <button
+                        key={color}
+                        style={{ background: color }}
+                        aria-label={`${t.pageColor} ${color}`}
+                        aria-pressed={
+                          (spineSelected
+                            ? book.cover.spine.color
+                            : page.color) === color
+                        }
+                        className={
+                          (spineSelected
+                            ? book.cover.spine.color
+                            : page.color) === color
+                            ? "selected"
+                            : ""
+                        }
+                        onClick={() =>
+                          spineSelected
+                            ? patchCover({
+                                spine: { ...book.cover.spine, color },
+                              })
+                            : patchPage(index, { color })
+                        }
+                      >
+                        {(spineSelected
+                          ? book.cover.spine.color
+                          : page.color) === color && (
+                          <Check
+                            size={15}
+                            color={darkColor(color) ? "white" : "#454b40"}
+                          />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="control-section">
+                  <TextControls
+                    page={spineSelected ? book.cover.spine : page}
+                    t={t}
+                    textareaRef={captionInput}
+                    disabled={readOnly}
+                    onChange={(patch) =>
+                      spineSelected
+                        ? patchCover({
+                            spine: { ...book.cover.spine, ...patch },
+                          })
+                        : patchPage(index, patch)
+                    }
+                  />
+                  <p className="small-note">{t.cropHint}</p>
+                  <p className="small-note">{t.qualityTarget}</p>
+                </div>
+              </fieldset>
               <div className="design-footer">
                 <span>✳</span>
                 <p>{t.tagline}</p>
@@ -1443,18 +1685,6 @@ function App() {
             {t.logout}
           </button>
         </Modal>
-      )}
-      {modal === "text" && book && (
-        <TextDialog
-          key={book.pages[textIndex].id}
-          page={book.pages[textIndex]}
-          t={t}
-          onClose={() => setModal(null)}
-          onApply={(draft) => {
-            patchPage(textIndex, draft);
-            setModal(null);
-          }}
-        />
       )}
       {modal === "preview" && book && (
         <Modal wide label={t.previewTitle} onClose={() => setModal(null)}>
@@ -1579,7 +1809,7 @@ function App() {
             </select>
           </label>
           <p className="small-note">{t.exportInfo}</p>
-          {scope !== "interior" && pdfLayout === "spreads" && (
+          {scope !== "interior" && (
             <p className="small-note">{t.coverPrintHint}</p>
           )}
           <label className="bleed-option">
@@ -1655,6 +1885,7 @@ function BookCard({ record, cover, t, onOpen, onDelete, onCopy, busy }) {
           {cover ? <img src={cover} alt="" loading="lazy" /> : <span>m✳</span>}
         </div>
         <h3>{record.title || t.blankBook}</h3>
+        {record.ownerEmail && <p className="book-owner">{record.ownerEmail}</p>}
         <p>
           {record.pageCount} {t.pages} {t.coversSeparate}
         </p>
@@ -1664,9 +1895,11 @@ function BookCard({ record, cover, t, onOpen, onDelete, onCopy, busy }) {
         <button onClick={onCopy} disabled={busy}>
           {t.duplicateBook}
         </button>
-        <button onClick={onDelete} disabled={busy}>
-          {t.deleteBook}
-        </button>
+        {onDelete && (
+          <button onClick={onDelete} disabled={busy}>
+            {t.deleteBook}
+          </button>
+        )}
       </div>
     </article>
   );

@@ -51,6 +51,7 @@ test("PDF profiles keep exact source bytes, share duplicate uploads and reduce p
   const source = "data:image/jpeg;base64," + jpeg.toString("base64");
   const thumb = await sharp(jpeg).resize(320).jpeg({ quality: 75 }).toBuffer();
   const book = newBook(40, "Print-size review");
+  book.format = "a5";
   book.photos = ["original-photo", "duplicate-photo"].map((id) => ({
     id,
     name: id + ".jpg",
@@ -185,6 +186,7 @@ test("compact spreads remove hidden pixels while preserving pan, zoom, bleed and
   test.setTimeout(180000);
   const jpeg = await photograph();
   const book = newBook(40, "Cropped spread review");
+  book.format = "a5";
   book.photos = [
     {
       id: "cropped-photo",

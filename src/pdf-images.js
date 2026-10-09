@@ -1,4 +1,5 @@
 import { slots, imageRect } from "./model";
+import { sheetGeometry } from "./format";
 
 export function pdfPhotoSlot(source, original, leaf, count, bleed) {
   const b = bleed ? 3 : 0;
@@ -25,11 +26,15 @@ export function pdfImagePlan(
   const photos = new Map(book.photos.map((photo) => [photo.id, photo]));
   const images = new Map();
   for (const sheet of sheets)
-    for (const [leaf, page] of sheet.entries())
-      for (const [index, original] of slots(page.layout).entries()) {
+    for (const panel of sheetGeometry(book, sheet, bleed).panels) {
+      const page = panel.source;
+      for (const [index, original] of slots(
+        page.layout,
+        panel.size,
+      ).entries()) {
         const photo = photos.get(page.photos[index]);
         if (!photo) continue;
-        const slot = pdfPhotoSlot(page, original, leaf, sheet.length, bleed);
+        const slot = page.layout === "full" ? panel.full : original;
         const rect = imageRect(photo, slot, page.crops[index]);
         const ratio =
           quality === "source" ? 1 : Math.min(1, (300 * rect.scale) / 25.4);
@@ -56,6 +61,7 @@ export function pdfImagePlan(
           : visible;
         images.set(photo.src, { photo, ratio: scale, area });
       }
+    }
   return images;
 }
 

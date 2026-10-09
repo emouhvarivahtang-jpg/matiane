@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 sharp.cache({ memory: 32, files: 0, items: 50 });
 sharp.concurrency(1);
-import { validateBook } from "../src/model.js";
+import { validateBook, forkBook } from "../src/model.js";
 
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const derive = promisify(scrypt);
@@ -63,6 +63,14 @@ export async function createApp(options = {}) {
   const secure = options.secure ?? process.env.SECURE_COOKIES !== "false";
   const trustProxy = options.trustProxy ?? process.env.TRUST_PROXY === "true";
   const photoQuota = options.photoQuota ?? 1024 * 1024 * 1024;
+  const adminEmails = new Set(
+    (options.adminEmails ?? process.env.MATIANE_ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const isAdmin = (email) => adminEmails.has(email);
+  const publicUser = (id, email) => ({ id, email, isAdmin: isAdmin(email) });
   const cookieName = secure ? "__Host-matiane-session" : "matiane-session";
   const photoDir = path.join(dataDir, "photos");
   const backupDir = path.join(dataDir, "backups");
@@ -182,7 +190,7 @@ export async function createApp(options = {}) {
         (secure ? "; Secure" : ""),
     );
     return {
-      user: { id: user.id, email: user.email },
+      user: publicUser(user.id, user.email),
       csrfToken: csrf,
       ...(recoveryCode ? { recoveryCode } : {}),
     };
@@ -319,7 +327,7 @@ export async function createApp(options = {}) {
       if (req.method === "GET" && route === "/api/session") {
         const session = userSession(req);
         return respond(res, 200, {
-          user: session ? { id: session.user_id, email: session.email } : null,
+          user: session ? publicUser(session.user_id, session.email) : null,
           csrfToken: session?.csrf || null,
         });
       }
@@ -426,6 +434,119 @@ export async function createApp(options = {}) {
       const session = requireSession(req);
       const userId = session.user_id;
       if (!["GET", "HEAD"].includes(req.method)) mutation(req, session);
+      if (route.startsWith("/api/admin/")) {
+        if (!isAdmin(session.email)) fail(403, "forbidden");
+        if (route === "/api/admin/books" && req.method === "GET") {
+          const offset = Math.max(
+            0,
+            Math.min(
+              Number.MAX_SAFE_INTEGER,
+              Math.floor(Number(url.searchParams.get("offset")) || 0),
+            ),
+          );
+          const rows = db
+            .prepare(
+              "SELECT books.*,users.email AS owner_email FROM books JOIN users ON users.id=books.user_id ORDER BY updated_at DESC LIMIT 100 OFFSET ?",
+            )
+            .all(offset);
+          return respond(res, 200, {
+            total: db.prepare("SELECT COUNT(*) AS n FROM books").get().n,
+            books: rows.map((row) => ({
+              id: row.id,
+              title: row.title,
+              pageCount: row.page_count,
+              revision: row.current_revision,
+              ownerId: row.user_id,
+              ownerEmail: row.owner_email,
+              updatedAt: row.updated_at,
+              cover: row.cover?.startsWith("/api/")
+                ? row.cover + "?thumbnail=1"
+                : row.cover,
+            })),
+          });
+        }
+        const adminMatch = route.match(
+          /^\/api\/admin\/books\/([a-f0-9-]{36})(?:\/(copy))?$/,
+        );
+        if (!adminMatch) fail(404, "not_found");
+        const row = db
+          .prepare(
+            "SELECT books.*,users.email AS owner_email FROM books JOIN users ON users.id=books.user_id WHERE books.id=?",
+          )
+          .get(adminMatch[1]);
+        if (!row) fail(404, "not_found");
+        if (req.method === "GET" && !adminMatch[2])
+          return respond(res, 200, {
+            ...currentBook(row),
+            ownerId: row.user_id,
+            ownerEmail: row.owner_email,
+          });
+        if (req.method === "POST" && adminMatch[2] === "copy") {
+          await body(req, 4096);
+          const result = transaction(() => {
+            if (
+              db
+                .prepare("SELECT COUNT(*) AS n FROM books WHERE user_id=?")
+                .get(userId).n >= 20
+            )
+              fail(409, "book_limit");
+            const source = currentBook(row).book;
+            const hashes = [
+              ...new Set(
+                source.photos
+                  .filter((p) => p.src.startsWith("/api/photos/"))
+                  .map((p) => p.src.slice(12)),
+              ),
+            ];
+            const usage = db
+              .prepare(
+                "SELECT COALESCE(SUM(size),0) AS n FROM photos JOIN photo_owners USING(hash) WHERE user_id=?",
+              )
+              .get(userId).n;
+            let extra = 0;
+            for (const hash of hashes) {
+              const photo = db
+                .prepare("SELECT size FROM photos WHERE hash=?")
+                .get(hash);
+              if (!photo) fail(404, "not_found");
+              if (
+                !db
+                  .prepare(
+                    "SELECT 1 FROM photo_owners WHERE hash=? AND user_id=?",
+                  )
+                  .get(hash, userId)
+              )
+                extra += photo.size;
+            }
+            if (usage + extra > photoQuota) fail(413, "storage_quota");
+            for (const hash of hashes) {
+              db.prepare("INSERT OR IGNORE INTO photo_owners VALUES(?,?)").run(
+                userId,
+                hash,
+              );
+              db.prepare("UPDATE photos SET orphaned_at=NULL WHERE hash=?").run(
+                hash,
+              );
+            }
+            const book = forkBook(validateBook(source, { allowCloud: true }));
+            db.prepare("INSERT INTO books VALUES(?,?,0,?,?,NULL,?)").run(
+              book.id,
+              userId,
+              book.title,
+              book.pageCount,
+              iso(),
+            );
+            const saved = appendVersion(
+              { id: book.id, current_revision: 0 },
+              book,
+              "auto",
+            );
+            return { ...saved, book };
+          });
+          return respond(res, 201, result);
+        }
+        fail(405, "invalid_request");
+      }
       if (req.method === "POST" && route === "/api/auth/logout") {
         db.prepare("DELETE FROM sessions WHERE token_hash=?").run(
           session.token_hash,
@@ -545,11 +666,13 @@ export async function createApp(options = {}) {
       }
       const photoMatch = route.match(/^\/api\/photos\/([a-f0-9]{64})$/);
       if (req.method === "GET" && photoMatch) {
-        const row = db
-          .prepare(
-            "SELECT photos.* FROM photos JOIN photo_owners USING(hash) WHERE hash=? AND user_id=?",
-          )
-          .get(photoMatch[1], userId);
+        const row = isAdmin(session.email)
+          ? db.prepare("SELECT * FROM photos WHERE hash=?").get(photoMatch[1])
+          : db
+              .prepare(
+                "SELECT photos.* FROM photos JOIN photo_owners USING(hash) WHERE hash=? AND user_id=?",
+              )
+              .get(photoMatch[1], userId);
         if (!row) fail(404, "not_found");
         const thumb = url.searchParams.get("thumbnail") === "1";
         const bytes = await fs.readFile(

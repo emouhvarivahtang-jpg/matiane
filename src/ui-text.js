@@ -12,8 +12,6 @@ const extra = {
     hidePassword: "Hide password",
     deletePageConfirm:
       "Delete this page? Following pages will move forward and an empty page will be added at the end. You can undo this.",
-    fontHint:
-      "10 free typefaces for English, Russian and Georgian. All allow commercial use.",
     pdfLayout: "PDF layout",
     pdfPages: "Individual A5 pages · recommended",
     pdfSpreads: "Facing spreads · reading order",
@@ -155,8 +153,6 @@ const extra = {
     hidePassword: "Скрыть пароль",
     deletePageConfirm:
       "Удалить эту страницу? Следующие сдвинутся, а в конец добавится пустая страница. Действие можно отменить.",
-    fontHint:
-      "10 бесплатных шрифтов для английского, русского и грузинского. Все разрешены для коммерческого использования.",
     pdfLayout: "Формат PDF",
     pdfPages: "Постраничный A5 · рекомендуемый",
     pdfSpreads: "Развороты · в порядке чтения",
@@ -373,7 +369,6 @@ const extra = {
     dpi: "DPI",
     photoLimit: "В книге может быть до 200 фотографий.",
     bleedFooter: "Печатайте в масштабе 100% · A5",
-    captionFit: "Длинный текст автоматически уменьшается до размеров поля.",
     sampleWarning:
       "Примеры нужны для знакомства. Для печати используйте свои фото высокого разрешения.",
   },
@@ -389,8 +384,6 @@ const extra = {
     hidePassword: "პაროლის დამალვა",
     deletePageConfirm:
       "წავშალოთ ეს გვერდი? მომდევნო გვერდები წინ გადმოიწევს, ბოლოს კი ცარიელი გვერდი დაემატება. მოქმედების გაუქმება შესაძლებელია.",
-    fontHint:
-      "10 უფასო შრიფტი ინგლისური, რუსული და ქართული ტექსტისთვის. ყველა დაშვებულია კომერციული გამოყენებისთვის.",
     pdfLayout: "PDF-ის ფორმატი",
     pdfPages: "ცალკეული A5 გვერდები · რეკომენდებული",
     pdfSpreads: "გაშლილი გვერდები · კითხვის მიმდევრობით",
@@ -521,10 +514,113 @@ const extra = {
     busy: "დაელოდეთ…",
   },
 };
+const updated = {
+  en: {
+    adminBooks: "All books · administrator",
+    adminBooksHint:
+      "Books saved in any account appear here automatically. Open to review or make a copy to edit in your account.",
+    adminReview: "Administrator review · read only",
+    loadMore: "Show more books",
+    bookSize: "Book size",
+    coverEditor: "Cover",
+    coverSize: "Outer cover",
+    spine: "Spine",
+    spineText: "Spine text",
+    spineWidth: "Spine width, mm",
+    coverWrap: "Cover wrap on each edge, mm",
+    spineHint:
+      "8 mm is a starting value. Set spine width and cover wrap from the printer’s template before printing.",
+    georgianTypography: "Georgian typeface",
+    originalGeorgian: "Original Georgian typeface",
+    typography: "English / Russian typeface",
+    coverSpread: "Cover · back / spine / front",
+    pdfPages: "Individual pages · recommended",
+    pdfSpreadsHint:
+      "Facing pages 2–3, 4–5… in reading order. First and last inside pages stand alone. Use this if your printer requests spreads.",
+    coverPrintHint:
+      "The cover exports as one full back / spine / front spread in both PDF modes. For the printer, download the cover and inside pages separately; confirm spine width and wrap.",
+    format: "19 × 24 cm · portrait",
+    bleedFooter: "Print at 100% scale",
+    bleedHint: "3 mm outer bleed; no extra bleed at the centre fold.",
+    noBleed: "Without bleed",
+    spreadBleedHint: "3 mm outer bleed; no extra bleed at the centre fold.",
+    spreadNoBleed: "Without bleed",
+  },
+  ru: {
+    adminBooks: "Все книги · администратор",
+    adminBooksHint:
+      "Здесь автоматически появляются книги, сохранённые во всех аккаунтах. Откройте для просмотра или создайте копию, чтобы редактировать в своём аккаунте.",
+    adminReview: "Просмотр администратором · без редактирования",
+    loadMore: "Показать ещё книги",
+    bookSize: "Размер книги",
+    coverEditor: "Обложка",
+    coverSize: "Внешняя обложка",
+    spine: "Корешок",
+    spineText: "Текст на корешке",
+    spineWidth: "Ширина корешка, мм",
+    coverWrap: "Загиб обложки с каждой стороны, мм",
+    spineHint:
+      "8 мм — начальное значение. Перед печатью укажите ширину корешка и загиб по шаблону типографии.",
+    georgianTypography: "Грузинский шрифт",
+    originalGeorgian: "Исходный грузинский шрифт",
+    typography: "Шрифт для русского / английского",
+    coverSpread: "Обложка · задняя / корешок / передняя",
+    pdfPages: "Постраничный · рекомендуемый",
+    pdfSpreadsHint:
+      "Соседние страницы 2–3, 4–5… в порядке чтения. Первая и последняя внутренние страницы — отдельные. Выбирайте этот вариант, если типография просит развороты.",
+    coverPrintHint:
+      "В обоих режимах обложка выгружается единым разворотом: задняя часть, корешок, передняя часть. Для типографии скачайте обложку и внутренние страницы отдельно; уточните корешок и загиб.",
+    format: "19 × 24 см · вертикальная",
+    bleedFooter: "Печатайте в масштабе 100%",
+    bleedHint: "Вылеты по 3 мм снаружи; без дополнительных вылетов по сгибу.",
+    noBleed: "Без вылетов",
+    spreadBleedHint:
+      "Вылеты по 3 мм снаружи; без дополнительных вылетов по сгибу.",
+    spreadNoBleed: "Без вылетов",
+  },
+  ka: {
+    adminBooks: "ყველა წიგნი · ადმინისტრატორი",
+    adminBooksHint:
+      "აქ ავტომატურად ჩანს ყველა ანგარიშში შენახული წიგნი. გახსენით სანახავად ან შექმენით ასლი თქვენს ანგარიშში რედაქტირებისთვის.",
+    adminReview: "ადმინისტრატორის ნახვა · მხოლოდ წაკითხვა",
+    loadMore: "მეტი წიგნის ჩვენება",
+    bookSize: "წიგნის ზომა",
+    coverEditor: "ყდა",
+    coverSize: "გარე ყდა",
+    spine: "ყუა",
+    spineText: "ტექსტი ყუაზე",
+    spineWidth: "ყუის სიგანე, მმ",
+    coverWrap: "ყდის გადაკეცვა თითოეულ კიდეზე, მმ",
+    spineHint:
+      "8 მმ საწყისი მნიშვნელობაა. ბეჭდვამდე ყუის სიგანე და გადაკეცვა სტამბის შაბლონის მიხედვით მიუთითეთ.",
+    georgianTypography: "ქართული შრიფტი",
+    originalGeorgian: "საწყისი ქართული შრიფტი",
+    typography: "ინგლისური / რუსული შრიფტი",
+    coverSpread: "ყდა · უკანა / ყუა / წინა",
+    pdfPages: "ცალკეული გვერდები · რეკომენდებული",
+    pdfSpreadsHint:
+      "მეზობელი გვერდები 2–3, 4–5… კითხვის თანმიმდევრობით. პირველი და ბოლო შიდა გვერდი ცალკეა. გამოიყენეთ, თუ სტამბა გაშლილ გვერდებს ითხოვს.",
+    coverPrintHint:
+      "ორივე რეჟიმში ყდა ერთ გაშლილ გვერდად ინახება: უკანა მხარე, ყუა, წინა მხარე. სტამბისთვის ყდა და შიდა გვერდები ცალკე ჩამოტვირთეთ; შეათანხმეთ ყუის სიგანე და გადაკეცვა.",
+    format: "19 × 24 სმ · ვერტიკალური",
+    bleedFooter: "ბეჭდვა 100% მასშტაბით",
+    bleedHint:
+      "გარე ჩამონაჭერი 3 მმ; შუა ნაკეცთან დამატებითი ჩამონაჭრის გარეშე.",
+    noBleed: "ჩამონაჭრის გარეშე",
+    spreadBleedHint:
+      "გარე ჩამონაჭერი 3 მმ; შუა ნაკეცთან დამატებითი ჩამონაჭრის გარეშე.",
+    spreadNoBleed: "ჩამონაჭრის გარეშე",
+  },
+};
 export const messages = Object.fromEntries(
   ["en", "ka", "ru"].map((lang) => [
     lang,
-    { ...translations.en, ...(translations[lang] || {}), ...extra[lang] },
+    {
+      ...translations.en,
+      ...(translations[lang] || {}),
+      ...extra[lang],
+      ...updated[lang],
+    },
   ]),
 );
 export function errorMessage(error, t) {

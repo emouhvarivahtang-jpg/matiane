@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures";
 import { PDFDocument, decodePDFRawStream } from "pdf-lib";
 import fs from "node:fs/promises";
-import { FONT_CATALOG } from "../src/fonts.js";
+import { FONT_CATALOG, GEORGIAN_FONT_CATALOG } from "../src/fonts.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 const create = async (page, title = "My memories", count = 40) => {
@@ -30,13 +30,13 @@ test("cabinet keeps multiple books, fixed counts and covers, backs up shrinking"
   await expect(page.getByLabel("Inside pages", { exact: true })).toHaveValue(
     "60",
   );
-  await expect(page.locator(".canvas-toolbar")).toContainText("Cover layout");
+  await expect(page.locator(".canvas-toolbar")).toContainText("Cover ·");
   expect(await page.locator(".workspace .book-spread .book-page").count()).toBe(
     2,
   );
   await page.getByRole("button", { name: "Page 2", exact: true }).click();
   await edit(page, "Saved page");
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+
   await page.getByRole("button", { name: "← My books", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "First book", exact: true }),
@@ -113,7 +113,7 @@ test("all photos crop on canvas independently, usage labels, reorder and spreads
   await second.getByRole("button", { name: "Fill frame", exact: true }).click();
   await expect(page.locator(".photo-used")).toContainText("Used");
   await edit(page, "Move this page");
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+
   const data = await downloadProject(page);
   expect(data.pages[2].crops[0].zoom).not.toEqual(data.pages[2].crops[1].zoom);
   expect(data.pages[2].crops[0].x).not.toEqual(50);
@@ -142,10 +142,10 @@ test("deletes a page with confirmation, shifts following content, keeps covers a
   ).toBeDisabled();
   await page.getByRole("button", { name: "Page 2", exact: true }).click();
   await edit(page, "Delete me");
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+
   await page.getByRole("button", { name: "Page 3", exact: true }).click();
   await edit(page, "Preserve the next page");
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+
   const original = await downloadProject(page);
   await page.getByRole("button", { name: "Page 2", exact: true }).click();
   page.once("dialog", (dialog) => dialog.dismiss());
@@ -241,12 +241,12 @@ test("formats Russian and Georgian text and exports real PDFs with embedded font
 }, info) => {
   await create(page);
   await edit(page, "თბილისი — Москва, наши воспоминания");
-  await page.getByLabel("Typography").selectOption("compact");
+  await page.getByLabel("English / Russian typeface").selectOption("manrope");
   await page.getByRole("button", { name: "Bold", exact: true }).click();
   await page.getByRole("button", { name: "Italic", exact: true }).click();
   await page.getByRole("button", { name: "Underline", exact: true }).click();
   await page.getByLabel("Text color", { exact: true }).fill("#a23c52");
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+
   await expect(page.locator(".active-leaf .page-caption")).toHaveCSS(
     "font-weight",
     "700",
@@ -268,7 +268,7 @@ test("formats Russian and Georgian text and exports real PDFs with embedded font
     await file.saveAs(target);
     const doc = await PDFDocument.load(await fs.readFile(target));
     expect(doc.getPageCount()).toBe(
-      scope === "all" ? 42 : scope === "interior" ? 40 : 2,
+      scope === "all" ? 41 : scope === "interior" ? 40 : 1,
     );
     if (scope !== "interior") {
       const contents = doc.getPage(0).node.Contents();
@@ -288,11 +288,15 @@ test("formats Russian and Georgian text and exports real PDFs with embedded font
         expect(m[3]).toBe(1);
       }
     }
-    expect(doc.getPage(0).getWidth()).toBeCloseTo((154 * 72) / 25.4);
-    expect(doc.getPage(0).getTrimBox().height).toBeCloseTo((210 * 72) / 25.4);
+    expect(doc.getPage(0).getWidth()).toBeCloseTo(
+      ((scope === "interior" ? 196 : 404) * 72) / 25.4,
+    );
+    expect(doc.getPage(0).getTrimBox().height).toBeCloseTo(
+      ((scope === "interior" ? 240 : 245) * 72) / 25.4,
+    );
   }
   const data = await downloadProject(page);
-  expect(data.pages[0].font).toBe("compact");
+  expect(data.pages[0].font).toBe("manrope");
   expect(data.pages[0].bold).toBe(true);
   expect(data.pages[0].textColor).toBe("#a23c52");
   await page.getByRole("button", { name: "RU", exact: true }).click();
@@ -357,7 +361,6 @@ test("exports facing spreads and individual pages with correct geometry and cent
       page,
       index === 2 ? "Left leaf · მარცხენა" : "Right leaf · правая",
     );
-    await page.getByRole("button", { name: "Apply", exact: true }).click();
   }
   for (const [layout, scope, bleed, count] of [
     ["spreads", "interior", true, 21],
@@ -391,12 +394,19 @@ test("exports facing spreads and individual pages with correct geometry and cent
         (scope !== "covers" &&
           (index === (scope === "all" ? 1 : 0) || index === count - 1));
       expect(sheet.getWidth()).toBeCloseTo(
-        (((single ? 148 : 296) + b * 2) * 72) / 25.4,
+        (((scope !== "interior" && index === 0 ? 398 : single ? 190 : 380) +
+          b * 2) *
+          72) /
+          25.4,
       );
       expect(sheet.getTrimBox().width).toBeCloseTo(
-        ((single ? 148 : 296) * 72) / 25.4,
+        ((scope !== "interior" && index === 0 ? 398 : single ? 190 : 380) *
+          72) /
+          25.4,
       );
-      expect(sheet.getTrimBox().height).toBeCloseTo((210 * 72) / 25.4);
+      expect(sheet.getTrimBox().height).toBeCloseTo(
+        ((scope !== "interior" && index === 0 ? 245 : 240) * 72) / 25.4,
+      );
       expect(sheet.getTrimBox().x).toBeCloseTo((b * 72) / 25.4);
     }
     if (layout === "spreads" && scope === "interior") {
@@ -412,9 +422,9 @@ test("exports facing spreads and individual pages with correct geometry and cent
       ].map((match) => match.slice(1).map(Number));
       expect(boxes).toHaveLength(2);
       expect(boxes[0][0]).toBeCloseTo(0);
-      expect(boxes[0][0] + boxes[0][2]).toBeCloseTo((151 * 72) / 25.4);
-      expect(boxes[1][0]).toBeCloseTo((151 * 72) / 25.4);
-      expect(boxes[1][0] + boxes[1][2]).toBeCloseTo((302 * 72) / 25.4);
+      expect(boxes[0][0] + boxes[0][2]).toBeCloseTo((193 * 72) / 25.4);
+      expect(boxes[1][0]).toBeCloseTo((193 * 72) / 25.4);
+      expect(boxes[1][0] + boxes[1][2]).toBeCloseTo((386 * 72) / 25.4);
     }
   }
 });
@@ -424,23 +434,26 @@ test("all free typefaces render Georgian and Cyrillic and embed both weights in 
   test.setTimeout(180000);
   await create(page);
   let index = 2;
-  for (const font of FONT_CATALOG) {
+  for (const [fontIndex, font] of FONT_CATALOG.entries()) {
     for (const bold of [false, true]) {
       await page
         .getByRole("button", { name: `Page ${index++}`, exact: true })
         .click();
       await edit(page, "თბილისი · ᲗᲑᲘᲚᲘᲡᲘ · Москва · Memories");
-      await expect(page.getByLabel("Typography").locator("option")).toHaveCount(
-        10,
-      );
-      await page.getByLabel("Typography").selectOption(font.id);
+      await expect(
+        page.getByLabel("English / Russian typeface").locator("option"),
+      ).toHaveCount(10);
+      await page.getByLabel("English / Russian typeface").selectOption(font.id);
+      await page
+        .getByLabel("Georgian typeface", { exact: true })
+        .selectOption(GEORGIAN_FONT_CATALOG[fontIndex].id);
       if (bold)
         await page.getByRole("button", { name: "Bold", exact: true }).click();
-      await expect(page.locator(".caption-sample")).toHaveCSS(
+      await expect(page.locator(".active-leaf .page-caption")).toHaveCSS(
         "font-family",
         /.+/,
       );
-      await page.getByRole("button", { name: "Apply", exact: true }).click();
+
       await page.evaluate(() => document.fonts.ready);
     }
   }
@@ -473,8 +486,10 @@ test("account autosave, named versions, recovery login and saved photos survive 
   );
   await create(page, "Cloud original");
   await edit(page, "თბილისი · моя книга");
-  await page.getByLabel("Typography").selectOption("firago");
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await page
+    .getByLabel("English / Russian typeface")
+    .selectOption("montserrat");
+
   await page
     .locator("input[type=file]")
     .first()
@@ -539,7 +554,7 @@ test("account autosave, named versions, recovery login and saved photos survive 
   await expect(page.locator(".cloud-books .book-card")).toHaveCount(1);
   await page.locator(".cloud-books .book-card-open").click();
   await expect(page.locator(".active-leaf img")).toBeVisible();
-  expect((await downloadProject(page)).pages[0].font).toBe("firago");
+  expect((await downloadProject(page)).pages[0].font).toBe("montserrat");
   expect(
     await page.locator(".active-leaf img").evaluate((e) => e.naturalWidth),
   ).toBeGreaterThan(0);

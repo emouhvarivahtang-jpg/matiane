@@ -9,6 +9,7 @@ import {
   spreads,
 } from "./model";
 import { browserCaption, fontFamily } from "./text";
+import { pageSize, coverSize, bookFormat, spineTextBox } from "./format";
 const pct = (n) => `${n}%`;
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 export function PhotoFrame({
@@ -21,6 +22,8 @@ export function PhotoFrame({
   onSelect,
   onCrop,
   tiny,
+  size = { w: 148, h: 210 },
+  drawingSlot = slot,
 }) {
   const ref = useRef(),
     draft = useRef(page.crops[slotIndex]),
@@ -33,9 +36,9 @@ export function PhotoFrame({
     setCrop(draft.current);
   }, [page.crops, slotIndex]);
   useEffect(() => () => clearTimeout(wheelTimer.current), []);
-  const editable = !!onSelect && !!photo;
+  const editable = !!onSelect && !!onCrop && !!photo;
   function change(next) {
-    const r = imageRect(photo, slot, next);
+    const r = imageRect(photo, drawingSlot, next);
     draft.current = { ...next, zoom: r.zoom };
     setCrop(draft.current);
   }
@@ -98,12 +101,12 @@ export function PhotoFrame({
       });
       return;
     }
-    const rect = imageRect(photo, slot, g.crop),
+    const rect = imageRect(photo, drawingSlot, g.crop),
       bounds = ref.current.getBoundingClientRect();
     const dx = values[0].x - g.values[0].x,
       dy = values[0].y - g.values[0].y;
-    const freeX = bounds.width * (1 - rect.w / slot.w),
-      freeY = bounds.height * (1 - rect.h / slot.h);
+    const freeX = (bounds.width * (drawingSlot.w - rect.w)) / slot.w,
+      freeY = (bounds.height * (drawingSlot.h - rect.h)) / slot.h;
     change({
       ...g.crop,
       x:
@@ -125,17 +128,17 @@ export function PhotoFrame({
       gesture.current = null;
     }
   }
-  const rect = photo ? imageRect(photo, slot, crop) : null,
-    dpi = photo ? Math.round(effectiveDpi(photo, slot, crop)) : 0;
+  const rect = photo ? imageRect(photo, drawingSlot, crop) : null,
+    dpi = photo ? Math.round(effectiveDpi(photo, drawingSlot, crop)) : 0;
   return (
     <div
       ref={ref}
       className={`photo-frame ${active ? "frame-selected" : ""} ${editable ? "crop-enabled" : ""}`}
       style={{
-        left: pct((slot.x / 148) * 100),
-        top: pct((slot.y / 210) * 100),
-        width: pct((slot.w / 148) * 100),
-        height: pct((slot.h / 210) * 100),
+        left: pct((slot.x / size.w) * 100),
+        top: pct((slot.y / size.h) * 100),
+        width: pct((slot.w / size.w) * 100),
+        height: pct((slot.h / size.h) * 100),
       }}
       role={onSelect ? "button" : undefined}
       tabIndex={onSelect ? 0 : undefined}
@@ -189,8 +192,8 @@ export function PhotoFrame({
           draggable={false}
           style={{
             position: "absolute",
-            left: pct((rect.x / slot.w) * 100),
-            top: pct((rect.y / slot.h) * 100),
+            left: pct(((drawingSlot.x - slot.x + rect.x) / slot.w) * 100),
+            top: pct(((drawingSlot.y - slot.y + rect.y) / slot.h) * 100),
             width: pct((rect.w / slot.w) * 100),
             height: pct((rect.h / slot.h) * 100),
           }}
@@ -198,12 +201,13 @@ export function PhotoFrame({
       ) : (
         <div className="empty-frame">{!tiny && <span>{t.empty}</span>}</div>
       )}
-      {!!onSelect && photo && dpi < 300 && (
+      {!tiny && !!onSelect && photo && dpi < 300 && (
         <span
           className={`quality-badge ${dpi < 150 ? "poor" : ""}`}
           title={`${t.printQuality}: ${dpi} DPI. ${t.qualityTarget}`}
+          aria-label={`${t.lowRes}: ${dpi} DPI`}
         >
-          ⚠ {dpi} DPI
+          ⚠ {t.lowRes} · {dpi} DPI
         </span>
       )}
       {active && editable && (
@@ -257,6 +261,8 @@ export function PageCanvas({
   onSelect,
   onCrop,
   onText,
+  size = { w: 148, h: 210 },
+  coverPanel = null,
 }) {
   const [layout, setLayout] = useState({
     size: page.fontSize,
@@ -265,52 +271,82 @@ export function PageCanvas({
   useEffect(() => {
     let active = true;
     const update = () => {
-      if (active) setLayout(browserCaption(page));
+      if (active) setLayout(browserCaption(page, size));
     };
     update();
-    document.fonts.ready.then(update);
+    document.fonts
+      .load(
+        `${page.italic ? "italic " : ""}${page.bold ? "700" : "400"} ${page.fontSize}px ${fontFamily(page.font, page.georgianFont)}`,
+        page.caption || "თბილისი Aa",
+      )
+      .then(update);
     return () => {
       active = false;
     };
   }, [
     page.caption,
     page.font,
+    page.georgianFont,
     page.fontSize,
     page.bold,
     page.italic,
     page.layout,
+    size.w,
+    size.h,
   ]);
-  const box = captionBox(page),
+  const wrap = coverPanel?.wrap || 0;
+  const display = { w: size.w + wrap, h: size.h + wrap * 2 };
+  const shift = { x: coverPanel?.side === 0 ? wrap : 0, y: wrap };
+  const box = captionBox(page, size),
     hasText = !!page.caption || !!onText;
   return (
     <div
       className={`book-page ${tiny ? "tiny-page" : ""}`}
-      style={{ background: page.color, color: textColor(page) }}
+      style={{
+        background: page.color,
+        color: textColor(page),
+        aspectRatio: `${display.w}/${display.h}`,
+      }}
     >
-      {slots(page.layout).map((slot, i) => (
+      {slots(page.layout, size).map((slot, i) => (
         <PhotoFrame
           key={i}
           page={page}
-          slot={slot}
+          slot={
+            page.layout === "full" && coverPanel
+              ? { x: 0, y: 0, w: display.w, h: display.h }
+              : { ...slot, x: slot.x + shift.x, y: slot.y + shift.y }
+          }
+          drawingSlot={
+            page.layout === "full" && coverPanel
+              ? {
+                  x: coverPanel.side === 0 ? -3 : 0,
+                  y: -3,
+                  w: display.w + 3,
+                  h: display.h + 6,
+                }
+              : { ...slot, x: slot.x + shift.x, y: slot.y + shift.y }
+          }
           slotIndex={i}
           photo={photos.find((p) => p.id === page.photos[i])}
           t={t}
           tiny={tiny}
+          size={display}
           active={i === activeFrame}
           onSelect={onSelect}
-          onCrop={(crop) => onCrop?.(i, crop)}
+          onCrop={onCrop ? (crop) => onCrop(i, crop) : undefined}
         />
       ))}
       {hasText && (
         <div
           className={`page-caption ${page.layout === "full" && page.caption ? "overlay-caption" : ""} ${onText ? "editable-caption" : ""} ${!page.caption ? "caption-placeholder" : ""}`}
           style={{
-            left: pct((box.x / 148) * 100),
-            top: pct((box.y / 210) * 100),
-            width: pct((box.w / 148) * 100),
-            height: pct((box.h / 210) * 100),
-            fontSize: `${(layout.size / ((148 * 72) / 25.4)) * 100}cqw`,
-            fontFamily: fontFamily(page.font),
+            left: pct(((box.x + shift.x) / display.w) * 100),
+            top: pct(((box.y + shift.y) / display.h) * 100),
+            width: pct((box.w / display.w) * 100),
+            height: pct((box.h / display.h) * 100),
+            fontSize: `${(layout.size / ((display.w * 72) / 25.4)) * 100}cqw`,
+            fontFamily: fontFamily(page.font, page.georgianFont),
             textAlign: page.align,
             fontWeight: page.bold ? 700 : 400,
             fontStyle: page.italic ? "italic" : "normal",
@@ -345,14 +381,35 @@ export function Spread({
   onSelect,
   onCrop,
   onText,
+  onSpine,
+  spineSelected,
 }) {
   const pair = spreads(book)[spreadIndex] || spreads(book)[0];
+  if (spreadIndex === 0)
+    return (
+      <CoverSpread
+        book={book}
+        t={t}
+        activeIndex={activeIndex}
+        activeFrame={activeFrame}
+        onSelect={onSelect}
+        onCrop={onCrop}
+        onText={onText}
+        onSpine={onSpine}
+        spineSelected={spineSelected}
+      />
+    );
   return (
     <div className={`book-spread ${spreadIndex === 0 ? "cover-spread" : ""}`}>
       {pair.map((index, side) =>
         index === null ? (
           <div className="spread-leaf blank-leaf" key={side}>
-            <div className="book-page" />
+            <div
+              className="book-page"
+              style={{
+                aspectRatio: `${bookFormat(book).w}/${bookFormat(book).h}`,
+              }}
+            />
             <span className="leaf-label">{t.insideCover}</span>
           </div>
         ) : (
@@ -363,6 +420,7 @@ export function Spread({
           >
             <PageCanvas
               page={book.pages[index]}
+              size={pageSize(book, book.pages[index])}
               photos={book.photos}
               t={t}
               activeFrame={index === activeIndex ? activeFrame : -1}
@@ -381,6 +439,143 @@ export function Spread({
             </span>
           </div>
         ),
+      )}
+    </div>
+  );
+}
+
+function CoverSpread({
+  book,
+  t,
+  activeIndex,
+  activeFrame,
+  onSelect,
+  onCrop,
+  onText,
+  onSpine,
+  spineSelected,
+}) {
+  const size = coverSize(book),
+    spine = book.cover.spine;
+  const spineBox = spineTextBox(book);
+  const [text, setText] = useState({
+    size: spine.fontSize,
+    lines: [spine.caption],
+  });
+  useEffect(() => {
+    let alive = true;
+    const update = () => {
+      if (alive) setText(browserCaption(spine, undefined, spineBox));
+    };
+    update();
+    document.fonts
+      .load(
+        `${spine.italic ? "italic " : ""}${spine.bold ? "700" : "400"} ${spine.fontSize}px ${fontFamily(spine.font, spine.georgianFont)}`,
+        spine.caption || "თბილისი Aa",
+      )
+      .then(update);
+    return () => {
+      alive = false;
+    };
+  }, [spine, size.spine, size.panelH]);
+  return (
+    <div
+      className="book-spread cover-spread complete-cover"
+      style={{
+        aspectRatio: `${size.w}/${size.h}`,
+        "--cover-height": size.panelH,
+        background: spine.color,
+      }}
+    >
+      {size.wrap > 0 && (
+        <div
+          className="cover-wrap-guide"
+          style={{
+            left: pct((size.wrap / size.w) * 100),
+            top: pct((size.wrap / size.h) * 100),
+            width: pct(((size.w - size.wrap * 2) / size.w) * 100),
+            height: pct(((size.h - size.wrap * 2) / size.h) * 100),
+          }}
+        />
+      )}
+      {[book.pages.length - 1, 0].map((index, side) => (
+        <div
+          key={index}
+          className={`spread-leaf ${index === activeIndex && !spineSelected ? "active-leaf" : ""}`}
+          style={{
+            position: "absolute",
+            left: pct(
+              ((side === 0 ? 0 : size.wrap + size.panelW + size.spine) /
+                size.w) *
+                100,
+            ),
+            top: 0,
+            width: pct(((size.panelW + size.wrap) / size.w) * 100),
+          }}
+          onClick={() => onSelect?.(index)}
+        >
+          <PageCanvas
+            page={book.pages[index]}
+            size={pageSize(book, book.pages[index])}
+            coverPanel={{ wrap: size.wrap, side }}
+            photos={book.photos}
+            t={t}
+            activeFrame={index === activeIndex ? activeFrame : -1}
+            onSelect={
+              onSelect
+                ? (frame, photo) => onSelect(index, frame, photo)
+                : undefined
+            }
+            onCrop={
+              onCrop ? (frame, crop) => onCrop(index, frame, crop) : undefined
+            }
+            onText={onText ? () => onText(index) : undefined}
+          />
+          <span className="leaf-label">
+            {pageLabel(book.pages[index], index, t)}
+          </span>
+        </div>
+      ))}
+      {size.spine > 0 && (
+        <div
+          className={`cover-spine ${spineSelected ? "selected" : ""}`}
+          role={onSpine ? "button" : undefined}
+          tabIndex={onSpine ? 0 : undefined}
+          aria-label={t.spineText}
+          onClick={onSpine}
+          onKeyDown={(event) => {
+            if (onSpine && ["Enter", " "].includes(event.key)) {
+              event.preventDefault();
+              onSpine();
+            }
+          }}
+          style={{
+            left: pct(((size.wrap + size.panelW) / size.w) * 100),
+            top: pct((size.wrap / size.h) * 100),
+            width: pct((size.spine / size.w) * 100),
+            height: pct((size.panelH / size.h) * 100),
+            background: spine.color,
+            color: textColor(spine),
+          }}
+        >
+          <span
+            className="spine-caption"
+            style={{
+              width: `${((size.panelH - 20) / size.spine) * 100}%`,
+              fontSize: `${((text.size * 25.4) / 72 / size.spine) * 100}cqw`,
+              fontFamily: fontFamily(spine.font, spine.georgianFont),
+              fontWeight: spine.bold ? 700 : 400,
+              fontStyle: spine.italic ? "italic" : "normal",
+              textDecoration: spine.underline ? "underline" : "none",
+              textAlign: spine.align,
+            }}
+          >
+            {text.lines.join("\n")}
+          </span>
+          {onSpine && !spine.caption && (
+            <span className="spine-placeholder">{t.spine}</span>
+          )}
+        </div>
       )}
     </div>
   );

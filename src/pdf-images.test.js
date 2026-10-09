@@ -20,6 +20,7 @@ const put = (
 
 it("keeps source resolution and ignores unused photographs and out-of-scope pages", () => {
   const book = newBook();
+  book.format = "a5";
   book.photos = [photo(), photo("unused", "unused.jpeg")];
   put(book.pages[1], "original");
   put(book.pages[0], "original", "full", { x: 50, y: 50, zoom: 5 });
@@ -61,6 +62,7 @@ it("extends full-frame photographs into external bleed but keeps the spread cent
 
 it("shares identical image data across photo IDs and retains every panned crop at the largest required resolution", () => {
   const book = newBook();
+  book.format = "a5";
   book.photos = [photo(), photo("duplicate")];
   put(book.pages[2], "original", "editorial", { x: 0, y: 0, zoom: 1 });
   put(book.pages[3], "duplicate", "full", { x: 100, y: 100, zoom: 1.4 });
@@ -87,6 +89,7 @@ it("removes only invisible areas and preserves at least 300 DPI for all placemen
     for (const x of [0, 50, 100])
       for (const zoom of [1, 1.3]) {
         const book = newBook();
+  book.format = "a5";
         book.photos = [photo()];
         put(book.pages[1], "original", layout, { x, y: 100 - x, zoom });
         const entry = pdfImagePlan(book, [[book.pages[1]]], {
@@ -104,6 +107,7 @@ it("removes only invisible areas and preserves at least 300 DPI for all placemen
 
 it("does not upscale low-resolution images or reduce sources needed by a strong zoom", () => {
   const book = newBook();
+  book.format = "a5";
   book.photos = [{ ...photo(), width: 640, height: 480 }];
   put(book.pages[1], "original");
   expect(
@@ -122,6 +126,7 @@ it("does not upscale low-resolution images or reduce sources needed by a strong 
 
 it("keeps resolution when duplicate source metadata is inconsistent", () => {
   const book = newBook();
+  book.format = "a5";
   book.photos = [photo(), { ...photo("duplicate"), width: 3000, height: 2000 }];
   put(book.pages[1], "original");
   put(book.pages[2], "duplicate");

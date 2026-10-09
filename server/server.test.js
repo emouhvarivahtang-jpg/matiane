@@ -96,6 +96,114 @@ const photo = () =>
   })
     .jpeg()
     .toBuffer();
+test("administrator can review all books and copy them, while ordinary users cannot access other accounts", async (t) => {
+  const f = await setup(t, { adminEmails: "admin@example.invalid" });
+  const owner = await f.register("author@example.invalid"),
+    admin = await f.register("admin@example.invalid"),
+    stranger = await f.register("stranger@example.invalid");
+  const image = await f.request("/photos", {
+    method: "POST",
+    body: await photo(),
+    user: owner,
+  });
+  const book = newBook(40, "Family album");
+  book.photos = [{ id: "private-photo", name: "Family.jpg", ...image.data }];
+  book.pages[0].photos = ["private-photo"];
+  const created = await f.request("/books", {
+    method: "POST",
+    body: { book },
+    user: owner,
+  });
+  assert.equal(created.status, 201);
+  const id = created.data.id;
+  assert.equal((await f.request("/admin/books")).status, 401);
+  assert.equal(
+    (await f.request("/admin/books", { user: stranger })).status,
+    403,
+  );
+  assert.equal(
+    (await f.request("/admin/books/" + id, { user: stranger })).status,
+    403,
+  );
+  assert.equal((await f.request("/books/" + id, { user: admin })).status, 404);
+  assert.equal(
+    (await f.request("/session", { user: admin })).data.user.isAdmin,
+    true,
+  );
+  assert.equal(
+    (await f.request("/session", { user: stranger })).data.user.isAdmin,
+    false,
+  );
+  const list = await f.request("/admin/books", { user: admin });
+  assert.equal(list.data.total, 1);
+  assert.equal(list.data.books[0].ownerEmail, owner.email);
+  assert.equal(
+    (await f.request("/admin/books/" + id, { user: admin })).data.book.title,
+    book.title,
+  );
+  assert.equal(
+    (await f.request(image.data.src.slice(4), { user: admin })).status,
+    200,
+  );
+  assert.equal(
+    (await f.request(image.data.src.slice(4), { user: stranger })).status,
+    404,
+  );
+  assert.equal(
+    (await f.request("/admin/books/" + id, { user: admin, method: "DELETE" }))
+      .status,
+    405,
+  );
+  assert.equal(
+    (
+      await f.request("/admin/books/" + id + "/copy", {
+        user: stranger,
+        method: "POST",
+        body: {},
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await f.request("/admin/books/" + id + "/copy", {
+        user: admin,
+        method: "POST",
+        body: {},
+        headers: { "X-CSRF-Token": "incorrect" },
+      })
+    ).status,
+    403,
+  );
+  const copied = await f.request("/admin/books/" + id + "/copy", {
+    user: admin,
+    method: "POST",
+    body: {},
+  });
+  assert.equal(copied.status, 201);
+  assert.notEqual(copied.data.id, id);
+  assert.equal(
+    (await f.request("/books/" + copied.data.id, { user: admin })).status,
+    200,
+  );
+  assert.equal(
+    (await f.request("/books/" + copied.data.id, { user: owner })).status,
+    404,
+  );
+  assert.equal(
+    (await f.request("/books/" + id, { user: owner })).data.revision,
+    1,
+  );
+  await f.restart();
+  assert.equal(
+    (await f.request("/session", { user: admin })).data.user.isAdmin,
+    true,
+  );
+  assert.equal(
+    (await f.request("/admin/books", { user: admin })).data.total,
+    2,
+  );
+});
 test("account authentication, CSRF, recovery and persistent sessions", async (t) => {
   const f = await setup(t),
     u = await f.register("user@example.invalid");

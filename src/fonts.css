@@ -95,3 +95,325 @@
   font-weight: 700;
   font-display: swap;
 }
+
+@font-face {
+  font-family: "Matiane Latin montserrat";
+  src: url("/fonts/Matiane-montserrat-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin montserrat";
+  src: url("/fonts/Matiane-montserrat-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin montserrat";
+  src: url("/fonts/Matiane-montserrat-RegularItalic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin montserrat";
+  src: url("/fonts/Matiane-montserrat-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin manrope";
+  src: url("/fonts/Matiane-manrope-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin manrope";
+  src: url("/fonts/Matiane-manrope-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin lora";
+  src: url("/fonts/Matiane-lora-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin lora";
+  src: url("/fonts/Matiane-lora-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin lora";
+  src: url("/fonts/Matiane-lora-RegularItalic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin lora";
+  src: url("/fonts/Matiane-lora-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin cormorantgaramond";
+  src: url("/fonts/Matiane-cormorantgaramond-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin cormorantgaramond";
+  src: url("/fonts/Matiane-cormorantgaramond-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin cormorantgaramond";
+  src: url("/fonts/Matiane-cormorantgaramond-RegularItalic.ttf")
+    format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin cormorantgaramond";
+  src: url("/fonts/Matiane-cormorantgaramond-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin playfairdisplay";
+  src: url("/fonts/Matiane-playfairdisplay-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin playfairdisplay";
+  src: url("/fonts/Matiane-playfairdisplay-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin playfairdisplay";
+  src: url("/fonts/Matiane-playfairdisplay-RegularItalic.ttf")
+    format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin playfairdisplay";
+  src: url("/fonts/Matiane-playfairdisplay-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin ptserif";
+  src: url("/fonts/Matiane-ptserif-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin ptserif";
+  src: url("/fonts/Matiane-ptserif-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin ptserif";
+  src: url("/fonts/Matiane-ptserif-RegularItalic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin ptserif";
+  src: url("/fonts/Matiane-ptserif-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin alegreya";
+  src: url("/fonts/Matiane-alegreya-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin alegreya";
+  src: url("/fonts/Matiane-alegreya-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin alegreya";
+  src: url("/fonts/Matiane-alegreya-RegularItalic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin alegreya";
+  src: url("/fonts/Matiane-alegreya-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin caveat";
+  src: url("/fonts/Matiane-caveat-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin caveat";
+  src: url("/fonts/Matiane-caveat-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin marckscript";
+  src: url("/fonts/Matiane-marckscript-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Matiane Latin badscript";
+  src: url("/fonts/Matiane-badscript-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "GE BPG Ingiri";
+  src: url("/fonts/BPG-ingiri.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+10A0-10FF, U+1C90-1CBF, U+2D00-2D2F;
+}
+
+@font-face {
+  font-family: "GE BPG Algeti";
+  src: url("/fonts/BPG-algeti.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+10A0-10FF, U+1C90-1CBF, U+2D00-2D2F;
+}
+
+@font-face {
+  font-family: "GE BPG Glaho";
+  src: url("/fonts/BPG-glaho.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+10A0-10FF, U+1C90-1CBF, U+2D00-2D2F;
+}
+
+@font-face {
+  font-family: "GE BPG Chveulebrivi";
+  src: url("/fonts/BPG-chveulebrivi.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+10A0-10FF, U+1C90-1CBF, U+2D00-2D2F;
+}
+
+@font-face {
+  font-family: "GE BPG Elite";
+  src: url("/fonts/BPG-elite.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+10A0-10FF, U+1C90-1CBF, U+2D00-2D2F;
+}
+
+@font-face {
+  font-family: "GE BPG Nino Medium";
+  src: url("/fonts/BPG-nino.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+10A0-10FF, U+1C90-1CBF, U+2D00-2D2F;
+}
+
+@font-face {
+  font-family: "GE BPG Nino Condensed";
+  src: url("/fonts/BPG-nino-condensed.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+10A0-10FF, U+1C90-1CBF, U+2D00-2D2F;
+}
+
+@font-face {
+  font-family: "GE BPG Courier";
+  src: url("/fonts/BPG-courier.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+10A0-10FF, U+1C90-1CBF, U+2D00-2D2F;
+}
+
+@font-face {
+  font-family: "GE BPG Serif";
+  src: url("/fonts/BPG-serif.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+10A0-10FF, U+1C90-1CBF, U+2D00-2D2F;
+}
+
+@font-face {
+  font-family: "GE BPG Serif Modern";
+  src: url("/fonts/BPG-serif-modern.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+10A0-10FF, U+1C90-1CBF, U+2D00-2D2F;
+}

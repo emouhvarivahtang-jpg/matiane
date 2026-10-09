@@ -22,7 +22,7 @@ it("exports every selected physical page once, in facing-page order, without add
         scope === "covers" ? 1 : count / 2 + (scope === "all" ? 2 : 1),
       );
       if (scope !== "interior")
-        expect(spreads[0]).toEqual([book.pages.at(-1), book.pages[0]]);
+        expect(Array.from(spreads[0])).toEqual([book.pages.at(-1), book.pages[0]]);
       if (scope !== "covers") {
         const interior = scope === "all" ? spreads.slice(1) : spreads;
         expect(interior[0]).toEqual([book.pages[1]]);

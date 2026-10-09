@@ -10,6 +10,7 @@ services:
       TRUST_PROXY: "true"
       DATA_DIR: /data
       PORT: "3000"
+      MATIANE_ADMIN_EMAILS: ${MATIANE_ADMIN_EMAILS:-}
     volumes:
       - account-data:/data
     ports:

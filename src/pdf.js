@@ -4,7 +4,8 @@ import { slots, captionBox, imageRect, textColor } from "./model";
 import { fitCaption } from "./text";
 import { fontName, fontAssets, fallbackFontName, isGeorgian } from "./fonts";
 import { pdfSheets } from "./pdf-layout";
-import { pdfImagePlan, pdfPhotoSlot, preparePdfImage } from "./pdf-images";
+import { sheetGeometry, bookFormat, spineTextBox } from "./format";
+import { pdfImagePlan, preparePdfImage } from "./pdf-images";
 const libraries = new Map();
 function loadLibrary(url, globalName) {
   if (window[globalName]) return Promise.resolve(window[globalName]);
@@ -58,23 +59,32 @@ export async function exportPdf(
     clip,
     endPath,
     degrees,
+    concatTransformationMatrix,
+    setTextRenderingMode,
+    setLineWidth,
+    setStrokingRgbColor,
   } = pdfLib;
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   doc.setTitle(book.title);
   doc.setAuthor("Matiane");
+  const format = bookFormat(book);
   doc.setSubject(
-    layout === "spreads"
-      ? "A5 photo book • reader spreads • RGB • no imposition or spine"
-      : "A5 photo book • individual pages • 148 × 210 mm • RGB",
+    `${format.w} × ${format.h} mm photo book • ${layout} • RGB • separate full cover with spine`,
   );
   const sheets = pdfSheets(book, { scope, layout });
   const sources = sheets.flat();
+  const textSources = [
+    ...sources,
+    ...(sheets.some((sheet) => sheet.cover) && book.cover.spineWidth > 0
+      ? [book.cover.spine]
+      : []),
+  ];
   const names = [
     ...new Set(
-      sources
+      textSources
         .filter((p) => p.caption.trim())
-        .flatMap((p) => fontAssets(p.font, p.bold)),
+        .flatMap((p) => fontAssets(p.font, p.bold, p.italic, p.georgianFont)),
     ),
   ];
   const fontData = new Map(
@@ -88,7 +98,13 @@ export async function exportPdf(
   );
   const nameFor = (source, char) => {
     const georgian = isGeorgian(char),
-      primary = fontName(source.font, source.bold, georgian),
+      primary = fontName(
+        source.font,
+        source.bold,
+        georgian,
+        source.italic,
+        source.georgianFont,
+      ),
       fallback = fallbackFontName(source.font, source.bold, georgian);
     const name = fontData.get(primary).characters.has(char.codePointAt(0))
       ? primary
@@ -98,7 +114,7 @@ export async function exportPdf(
     return name;
   };
   const usedNames = new Set(
-    sources
+    textSources
       .filter((source) => source.caption.trim())
       .flatMap((source) =>
         [...source.caption]
@@ -116,32 +132,133 @@ export async function exportPdf(
   );
   const imagePlan = pdfImagePlan(book, sheets, { bleed, quality });
   const imageCache = new Map();
-  const b = bleed ? 3 : 0,
-    height = mm(210 + b * 2);
+  function drawCaption(page, source, box, offsetX, offsetY, height) {
+    if (!source.caption.trim()) return;
+    const fontFor = (char) => fonts.get(nameFor(source, char));
+    const { size, lines } = fitCaption(
+      source.caption,
+      source.fontSize,
+      (char, size) => fontFor(char).widthOfTextAtSize(char, size),
+      box,
+    );
+    const ink = color(textColor(source), rgb),
+      textWidth = mm(box.w);
+    if (source.layout === "full")
+      page.drawRectangle({
+        x: mm(box.x + offsetX - 4),
+        y: height - mm(box.y + offsetY + box.h + 2),
+        width: mm(box.w + 8),
+        height: mm(box.h + 4),
+        color: rgb(0, 0, 0),
+        opacity: 0.35,
+      });
+    let baseline = height - mm(box.y + offsetY) - size;
+    for (const line of lines) {
+      const lineWidth = [...line].reduce(
+        (sum, char) => sum + fontFor(char).widthOfTextAtSize(char, size),
+        0,
+      );
+      let x =
+        mm(box.x + offsetX) +
+        (source.align === "center"
+          ? (textWidth - lineWidth) / 2
+          : source.align === "right"
+            ? textWidth - lineWidth
+            : 0);
+      const startX = x;
+      let run = "",
+        name = null;
+      const drawRun = () => {
+        if (!run) return;
+        const font = fonts.get(name);
+        const synthesizedBold =
+          source.bold &&
+          name ===
+            fontName(
+              source.font,
+              false,
+              isGeorgian(run[0]),
+              source.italic,
+              source.georgianFont,
+            );
+        page.pushOperators(pushGraphicsState());
+        if (synthesizedBold)
+          page.pushOperators(
+            setTextRenderingMode(2),
+            setLineWidth(size * 0.025),
+            setStrokingRgbColor(ink.red, ink.green, ink.blue),
+          );
+        page.drawText(run, {
+          x,
+          y: baseline,
+          size,
+          font,
+          color: ink,
+          ySkew:
+            source.italic && !name.includes("Italic")
+              ? degrees(12)
+              : degrees(0),
+        });
+        page.pushOperators(popGraphicsState());
+        x += font.widthOfTextAtSize(run, size);
+      };
+      for (const char of line) {
+        const next = nameFor(source, char);
+        if (name && next !== name) {
+          drawRun();
+          run = "";
+        }
+        name = next;
+        run += char;
+      }
+      drawRun();
+      if (source.underline && lineWidth)
+        page.drawLine({
+          start: { x: startX, y: baseline - size * 0.15 },
+          end: { x: startX + lineWidth, y: baseline - size * 0.15 },
+          thickness: Math.max(0.4, size * 0.05),
+          color: ink,
+        });
+      baseline -= size * 1.45;
+    }
+  }
   let completed = 0;
   for (const sheet of sheets) {
-    const width = mm(148 * sheet.length + b * 2);
+    const geometry = sheetGeometry(book, sheet, bleed),
+      height = mm(geometry.h),
+      width = mm(geometry.w);
     const page = doc.addPage([width, height]);
-    page.setTrimBox(mm(b), mm(b), mm(148 * sheet.length), mm(210));
+    page.setTrimBox(
+      mm(geometry.b),
+      mm(geometry.b),
+      mm(geometry.trimW),
+      mm(geometry.trimH),
+    );
     page.setBleedBox(0, 0, width, height);
-    for (const [leaf, source] of sheet.entries()) {
-      const offset = 148 * leaf + b,
-        leftBleed = leaf === 0 ? b : 0,
-        rightBleed = leaf === sheet.length - 1 ? b : 0;
+    if (sheet.cover)
       page.drawRectangle({
-        x: mm(offset - leftBleed),
+        x: 0,
         y: 0,
-        width: mm(148 + leftBleed + rightBleed),
+        width,
+        height,
+        color: color(book.cover.spine.color, rgb),
+      });
+    for (const panel of geometry.panels) {
+      const { source, size, x: offsetX, y: offsetY, full } = panel;
+      page.drawRectangle({
+        x: mm(offsetX + full.x),
+        y: 0,
+        width: mm(full.w),
         height,
         color: color(source.color, rgb),
       });
-      for (const [i, originalSlot] of slots(source.layout).entries()) {
+      for (const [i, originalSlot] of slots(source.layout, size).entries()) {
         const photo = book.photos.find((p) => p.id === source.photos[i]);
         if (!photo) continue;
         if (!imageCache.has(photo.src)) {
-          const plan = imagePlan.get(photo.src);
-          const prepared = await preparePdfImage(await bytes(photo.src), plan);
-          const data = prepared.data;
+          const plan = imagePlan.get(photo.src),
+            prepared = await preparePdfImage(await bytes(photo.src), plan),
+            data = prepared.data;
           imageCache.set(photo.src, {
             area: {
               x: prepared.area.x / plan.photo.width,
@@ -155,22 +272,13 @@ export async function exportPdf(
                 : await doc.embedJpg(data),
           });
         }
-        const { image, area } = imageCache.get(photo.src);
-        const slot = pdfPhotoSlot(
-          source,
-          originalSlot,
-          leaf,
-          sheet.length,
-          bleed,
-        );
-        const x = mm(slot.x + offset),
-          y = height - mm(slot.y + b + slot.h),
+        const { image, area } = imageCache.get(photo.src),
+          slot = source.layout === "full" ? full : originalSlot;
+        const x = mm(slot.x + offsetX),
+          y = height - mm(slot.y + offsetY + slot.h),
           w = mm(slot.w),
           h = mm(slot.h);
-        const drawingSlot = slot;
-        const rect = imageRect(photo, drawingSlot, source.crops[i]);
-        const imageWidth = mm(area.w * rect.w),
-          imageHeight = mm(area.h * rect.h);
+        const rect = imageRect(photo, slot, source.crops[i]);
         page.pushOperators(
           pushGraphicsState(),
           rectangle(x, y, w, h),
@@ -178,86 +286,47 @@ export async function exportPdf(
           endPath(),
         );
         page.drawImage(image, {
-          x: mm(drawingSlot.x + offset + rect.x + area.x * rect.w),
+          x: mm(slot.x + offsetX + rect.x + area.x * rect.w),
           y:
-            height -
-            mm(drawingSlot.y + b + rect.y + (area.y + area.h) * rect.h),
-          width: imageWidth,
-          height: imageHeight,
+            height - mm(slot.y + offsetY + rect.y + (area.y + area.h) * rect.h),
+          width: mm(area.w * rect.w),
+          height: mm(area.h * rect.h),
         });
         page.pushOperators(popGraphicsState());
       }
-      if (source.caption.trim()) {
-        const fontFor = (char) => fonts.get(nameFor(source, char));
-        const box = captionBox(source),
-          textWidth = mm(box.w);
-        const { size, lines } = fitCaption(
-          source.caption,
-          source.fontSize,
-          (char, size) => fontFor(char).widthOfTextAtSize(char, size),
-          box,
-        );
-        const ink = color(textColor(source), rgb);
-        if (source.layout === "full")
-          page.drawRectangle({
-            x: mm(box.x + offset - 4),
-            y: height - mm(box.y + b + box.h + 2),
-            width: mm(box.w + 8),
-            height: mm(box.h + 4),
-            color: rgb(0, 0, 0),
-            opacity: 0.35,
-          });
-        let baseline = height - mm(box.y + b) - size;
-        for (const line of lines) {
-          const lineWidth = [...line].reduce(
-            (sum, c) => sum + fontFor(c).widthOfTextAtSize(c, size),
-            0,
-          );
-          let x =
-            mm(box.x + offset) +
-            (source.align === "center"
-              ? (textWidth - lineWidth) / 2
-              : source.align === "right"
-                ? textWidth - lineWidth
-                : 0);
-          const startX = x;
-          // Draw contiguous runs so Georgian and Latin can coexist with embedded fonts.
-          let run = "",
-            font = null;
-          const drawRun = () => {
-            if (run) {
-              page.drawText(run, {
-                x,
-                y: baseline,
-                size,
-                font,
-                color: ink,
-                ySkew: source.italic ? degrees(12) : degrees(0),
-              });
-              x += font.widthOfTextAtSize(run, size);
-            }
-          };
-          for (const c of line) {
-            const next = fontFor(c);
-            if (font && next !== font) {
-              drawRun();
-              run = "";
-            }
-            font = next;
-            run += c;
-          }
-          drawRun();
-          if (source.underline && lineWidth)
-            page.drawLine({
-              start: { x: startX, y: baseline - size * 0.15 },
-              end: { x: startX + lineWidth, y: baseline - size * 0.15 },
-              thickness: Math.max(0.4, size * 0.05),
-              color: ink,
-            });
-          baseline -= size * 1.45;
-        }
-      }
+      drawCaption(
+        page,
+        source,
+        captionBox(source, size),
+        offsetX,
+        offsetY,
+        height,
+      );
       onProgress(++completed / sources.length);
+    }
+    if (geometry.spine?.w > 0) {
+      const spine = geometry.spine,
+        box = spineTextBox(book);
+      page.pushOperators(
+        pushGraphicsState(),
+        concatTransformationMatrix(
+          0,
+          1,
+          -1,
+          0,
+          mm(spine.x + box.inset),
+          height - mm(spine.y + spine.h - 10),
+        ),
+      );
+      drawCaption(
+        page,
+        book.cover.spine,
+        { x: 0, y: 0, w: box.w, h: box.h },
+        0,
+        0,
+        0,
+      );
+      page.pushOperators(popGraphicsState());
     }
   }
   return doc.save();

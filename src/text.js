@@ -1,7 +1,14 @@
 import { captionBox } from "./model";
-import { fontDefinition } from "./fonts";
+import { fontDefinition, georgianDefinition } from "./fonts";
 export { fontName } from "./fonts";
-export const fontFamily = (font) => fontDefinition(font).family;
+export const fontFamily = (font, georgianFont) => {
+  const selected = fontDefinition(font),
+    georgian = georgianDefinition(georgianFont);
+  const latin = selected.family.startsWith("Matiane Latin")
+    ? `"${selected.family}"`
+    : selected.family;
+  return `${georgian ? `"${georgian.family}", ` : ""}${latin}, ${selected.serif ? '"Noto Georgian Serif"' : '"Noto Georgian"'}, serif`;
+};
 export function wrapText(text, width, size, measure) {
   const lines = [];
   let line = "",
@@ -54,15 +61,15 @@ export function fitCaption(
   }
   return { size, lines };
 }
-export function browserCaption(page) {
+export function browserCaption(page, size, box = captionBox(page, size)) {
   const ctx = document.createElement("canvas").getContext("2d");
   return fitCaption(
     page.caption,
     page.fontSize,
     (char, size) => {
-      ctx.font = `${page.italic ? "italic " : ""}${page.bold ? "700" : "400"} ${size}px ${fontFamily(page.font)}`;
+      ctx.font = `${page.italic ? "italic " : ""}${page.bold ? "700" : "400"} ${size}px ${fontFamily(page.font, page.georgianFont)}`;
       return ctx.measureText(char).width;
     },
-    captionBox(page),
+    box,
   );
 }

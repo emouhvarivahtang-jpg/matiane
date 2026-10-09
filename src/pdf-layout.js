@@ -7,15 +7,14 @@ export function pdfSheets(book, { scope = "all", layout = "pages" } = {}) {
   )
     throw new Error("Invalid PDF selection");
   if (layout === "pages") {
-    const pages =
-      scope === "interior"
-        ? book.pages.slice(1, -1)
-        : scope === "covers"
-          ? [book.pages[0], book.pages.at(-1)]
-          : book.pages;
-    return pages.map((page) => [page]);
+    const interior = book.pages.slice(1, -1).map((page) => [page]);
+    return scope === "covers"
+      ? [coverSheet(book)]
+      : scope === "interior"
+        ? interior
+        : [coverSheet(book), ...interior];
   }
-  const covers = [[book.pages.at(-1), book.pages[0]]];
+  const covers = [coverSheet(book)];
   const interior = [[book.pages[1]]];
   for (let index = 2; index <= book.pageCount; index += 2) {
     interior.push(
@@ -27,4 +26,9 @@ export function pdfSheets(book, { scope = "all", layout = "pages" } = {}) {
     : scope === "interior"
       ? interior
       : [...covers, ...interior];
+}
+function coverSheet(book) {
+  const sheet = [book.pages.at(-1), book.pages[0]];
+  sheet.cover = true;
+  return sheet;
 }

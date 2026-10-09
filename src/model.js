@@ -1,4 +1,5 @@
-import { FONTS } from "./fonts.js";
+import { FONTS, GEORGIAN_FONTS } from "./fonts.js";
+import { FORMATS, pageSize, fullPhotoSlot } from "./format.js";
 export { FONTS } from "./fonts.js";
 export const uid = () => {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
@@ -53,7 +54,8 @@ export const newPage = (photoId = null, kind = "page") => ({
   photos: [photoId],
   crops: [defaultCrop()],
   caption: "",
-  font: "serif",
+  font: "montserrat",
+  georgianFont: "bpg-ingiri",
   fontSize: kind === "front" ? 26 : 14,
   align: "center",
   textColor: null,
@@ -77,6 +79,8 @@ export function newBook(
   return {
     id: uid(),
     version: 2,
+    format: "portrait",
+    cover: defaultCover(),
     title,
     pageCount,
     photos: [],
@@ -123,7 +127,15 @@ export function demoBook(language = "en") {
   book.pages[0].photos = [book.photos[0].id];
   return book;
 }
-export function slots(layout) {
+export function slots(layout, size = { w: 148, h: 210 }) {
+  return baseSlots(layout).map((slot) => ({
+    x: (slot.x * size.w) / 148,
+    y: (slot.y * size.h) / 210,
+    w: (slot.w * size.w) / 148,
+    h: (slot.h * size.h) / 210,
+  }));
+}
+function baseSlots(layout) {
   switch (layout) {
     case "full":
       return [{ x: 0, y: 0, w: 148, h: 210 }];
@@ -152,7 +164,16 @@ export function slots(layout) {
       return [{ x: 12, y: 14, w: 124, h: 153 }];
   }
 }
-export const captionBox = (page) =>
+export const captionBox = (page, size = { w: 148, h: 210 }) => {
+  const box = baseCaptionBox(page);
+  return {
+    x: (box.x * size.w) / 148,
+    y: (box.y * size.h) / 210,
+    w: (box.w * size.w) / 148,
+    h: (box.h * size.h) / 210,
+  };
+};
+const baseCaptionBox = (page) =>
   page?.layout === "text"
     ? { x: 15, y: 60, w: 118, h: 90 }
     : { x: 12, y: 176, w: 124, h: 24 };
@@ -194,11 +215,15 @@ export function issues(book, selection = "all") {
       (selection === "covers" && page.kind === "page")
     )
       return;
-    slots(page.layout).forEach((slot, i) => {
+    slots(page.layout, pageSize(book, page)).forEach((slot, i) => {
       const photo = book.photos.find((p) => p.id === page.photos[i]);
       if (!photo) result.push({ page: index, type: "empty" });
       else {
-        const dpi = effectiveDpi(photo, slot, page.crops[i]);
+        const dpi = effectiveDpi(
+          photo,
+          page.layout === "full" ? fullPhotoSlot(book, page) : slot,
+          page.crops[i],
+        );
         if (dpi < 300)
           result.push({
             page: index,
@@ -275,6 +300,39 @@ export function forkBook(book, title = book.title) {
 const hex = (value) => /^#[0-9a-fA-F]{6}$/.test(value);
 const idString = (value) =>
   typeof value === "string" && value.length > 0 && value.length <= 100;
+export function defaultCover() {
+  return {
+    spineWidth: 8,
+    wrap: 0,
+    spine: {
+      caption: "",
+      font: "montserrat",
+      georgianFont: "bpg-ingiri",
+      fontSize: 12,
+      align: "center",
+      color: COLORS[0],
+      textColor: null,
+      bold: false,
+      italic: false,
+      underline: false,
+      layout: "text",
+    },
+  };
+}
+function validTextStyle(p) {
+  return (
+    typeof p.caption === "string" &&
+    p.caption.length <= 1000 &&
+    FONTS.includes(p.font) &&
+    (p.georgianFont == null || GEORGIAN_FONTS.includes(p.georgianFont)) &&
+    Number.isFinite(p.fontSize) &&
+    p.fontSize >= 8 &&
+    p.fontSize <= 44 &&
+    ["left", "center", "right"].includes(p.align) &&
+    (p.textColor === null || hex(p.textColor)) &&
+    ["bold", "italic", "underline"].every((key) => typeof p[key] === "boolean")
+  );
+}
 export function validateBook(value, { allowCloud = false } = {}) {
   if (value?.version === 1) {
     if (
@@ -286,6 +344,7 @@ export function validateBook(value, { allowCloud = false } = {}) {
       throw new Error("Invalid legacy project");
     const count = PAGE_COUNTS.find((n) => n >= value.pages.length);
     const migrated = newBook(count, value.title, value.language);
+    migrated.format = "a5";
     migrated.photos = value.photos;
     migrated.pages.splice(
       1,
@@ -319,6 +378,22 @@ export function validateBook(value, { allowCloud = false } = {}) {
     value.title.length > 100
   )
     throw new Error("Invalid project");
+  const format = value.format ?? "a5";
+  if (typeof format !== "string" || !Object.hasOwn(FORMATS, format))
+    throw new Error("Invalid format");
+  const cover = value.cover ?? defaultCover();
+  if (
+    !Number.isFinite(cover.spineWidth) ||
+    cover.spineWidth < 0 ||
+    cover.spineWidth > 60 ||
+    !Number.isFinite(cover.wrap) ||
+    cover.wrap < 0 ||
+    cover.wrap > 30 ||
+    !cover.spine ||
+    !hex(cover.spine.color) ||
+    !validTextStyle(cover.spine)
+  )
+    throw new Error("Invalid cover");
   const ids = new Set();
   const photos = value.photos.map((p) => {
     const validSource =
@@ -377,6 +452,7 @@ export function validateBook(value, { allowCloud = false } = {}) {
       typeof p.caption !== "string" ||
       p.caption.length > 1000 ||
       !FONTS.includes(p.font) ||
+      !validTextStyle(p) ||
       !Number.isFinite(p.fontSize) ||
       p.fontSize < 8 ||
       p.fontSize > 44 ||
@@ -409,6 +485,7 @@ export function validateBook(value, { allowCloud = false } = {}) {
       })),
       caption: p.caption,
       font: p.font,
+      georgianFont: p.georgianFont ?? null,
       fontSize: p.fontSize,
       align: p.align,
       textColor: p.textColor,
@@ -420,6 +497,21 @@ export function validateBook(value, { allowCloud = false } = {}) {
   return {
     id: value.id,
     version: 2,
+    format,
+    cover: {
+      spineWidth: cover.spineWidth,
+      wrap: cover.wrap,
+      spine: Object.fromEntries(
+        Object.keys(defaultCover().spine).map((key) => [
+          key,
+          key === "layout"
+            ? "text"
+            : key === "georgianFont"
+              ? (cover.spine[key] ?? null)
+              : cover.spine[key],
+        ]),
+      ),
+    },
     title: value.title,
     pageCount: value.pageCount,
     photos,
