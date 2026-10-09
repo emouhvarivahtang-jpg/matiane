@@ -294,11 +294,12 @@ function App() {
     }
   }
   useEffect(() => {
-    if (!book || !user || !writer.current || localImport.running) return;
+    if (!book || !user || !writer.current || localImport.running || readOnly)
+      return;
     setCloudStatus("savingCloud");
     const timer = setTimeout(() => saveCloud(book).catch(() => {}), 2300);
     return () => clearTimeout(timer);
-  }, [book, user, localImport.running]);
+  }, [book, user, localImport.running, readOnly]);
   useEffect(() => {
     const leave = (e) => {
       if (
