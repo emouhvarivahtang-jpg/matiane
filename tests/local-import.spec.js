@@ -185,6 +185,7 @@ test("registration imports all closed guest books with photos, layouts and cover
     await page
       .getByRole("button", { name: "Open latest version", exact: true })
       .click();
+    await expect(page.locator(".conflict-banner")).toHaveCount(0);
     await page.getByRole("button", { name: "Page 4", exact: true }).click();
     await expect(page.locator(".active-leaf .page-caption")).toHaveText(
       "Latest edit from another device",
@@ -195,6 +196,7 @@ test("registration imports all closed guest books with photos, layouts and cover
 });
 test("a lost upload response keeps the local original, and retry creates exactly one server book", async ({
   page,
+  request,
 }) => {
   await page.goto("/");
   await expect(
@@ -209,7 +211,13 @@ test("a lost upload response keeps the local original, and retry creates exactly
   const loseResponse = async (route) => {
     if (route.request().method() === "POST" && !lost) {
       lost = true;
-      const response = await route.fetch();
+      const source = route.request();
+      const response = await request.fetch(source.url(), {
+        method: source.method(),
+        headers: await source.allHeaders(),
+        data: source.postDataBuffer() || undefined,
+        maxRedirects: 0,
+      });
       expect(response.status()).toBe(201);
       await route.abort("connectionreset");
     } else await route.fallback();
