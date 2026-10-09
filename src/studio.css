@@ -104,6 +104,10 @@ body {
 .cabinet section {
   margin: 32px 0;
 }
+.local-import {
+  max-width: 1160px;
+  margin: 16px auto;
+}
 .cabinet section > h2 {
   font-weight: 500;
   font-size: 16px;

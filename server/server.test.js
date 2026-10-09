@@ -96,6 +96,75 @@ const photo = () =>
   })
     .jpeg()
     .toBuffer();
+test("local book imports survive retries and restarts without duplicates or overwriting later edits", async (t) => {
+  const f = await setup(t, { adminEmails: "admin-import@example.invalid" });
+  const owner = await f.register("import-owner@example.invalid"),
+    other = await f.register("import-other@example.invalid"),
+    admin = await f.register("admin-import@example.invalid");
+  const book = newBook(40, "An existing local book");
+  book.pages[2].caption = "ჩვენი ოჯახი · Family · Семья";
+  const create = (user = owner, value = book, requestKey = book.id) =>
+    f.request("/books", {
+      method: "POST",
+      user,
+      body: { book: value, requestKey },
+    });
+  const first = await create();
+  assert.equal(first.status, 201);
+  await f.restart();
+  const retry = await create();
+  assert.equal(retry.status, 201);
+  assert.equal(retry.data.id, first.data.id);
+  assert.equal(retry.data.revision, 1);
+  assert.equal(
+    (await f.request("/books", { user: owner })).data.books.length,
+    1,
+  );
+  assert.equal(
+    (await f.request("/admin/books", { user: admin })).data.total,
+    1,
+  );
+  const independent = await create(other);
+  assert.equal(independent.status, 201);
+  assert.notEqual(independent.data.id, first.data.id);
+  const changed = structuredClone(book);
+  changed.pages[2].caption = "An edit made after importing";
+  assert.equal(
+    (
+      await f.request("/books/" + first.data.id, {
+        method: "PUT",
+        user: owner,
+        body: { book: changed, baseVersion: 1 },
+      })
+    ).status,
+    200,
+  );
+  assert.equal((await create()).status, 409);
+  assert.equal((await create()).data.error, "version_conflict");
+  assert.deepEqual((await create()).data.bookInfo, {
+    id: first.data.id,
+    revision: 2,
+  });
+  assert.equal(
+    (await f.request("/books/" + first.data.id, { user: owner })).data.book
+      .pages[2].caption,
+    changed.pages[2].caption,
+  );
+  assert.equal((await create(owner, changed)).data.revision, 2);
+  assert.equal((await create(owner, book, "")).status, 400);
+  assert.equal(
+    (
+      await f.request("/books/" + first.data.id, {
+        method: "DELETE",
+        user: owner,
+      })
+    ).status,
+    200,
+  );
+  const recreated = await create();
+  assert.equal(recreated.status, 201);
+  assert.notEqual(recreated.data.id, first.data.id);
+});
 test("administrator can review all books and copy them, while ordinary users cannot access other accounts", async (t) => {
   const f = await setup(t, { adminEmails: "admin@example.invalid" });
   const owner = await f.register("author@example.invalid"),

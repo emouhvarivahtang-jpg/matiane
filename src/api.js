@@ -1,9 +1,10 @@
 let csrf = null;
 export class ApiError extends Error {
-  constructor(code, status) {
+  constructor(code, status, bookInfo = null) {
     super(code);
     this.code = code;
     this.status = status;
+    this.bookInfo = bookInfo;
   }
 }
 export async function api(path, { method = "GET", body } = {}) {
@@ -24,7 +25,11 @@ export async function api(path, { method = "GET", body } = {}) {
   });
   const value = await response.json();
   if (!response.ok)
-    throw new ApiError(value.error || "request_failed", response.status);
+    throw new ApiError(
+      value.error || "request_failed",
+      response.status,
+      value.bookInfo,
+    );
   if ("csrfToken" in value) csrf = value.csrfToken;
   return value;
 }
@@ -83,7 +88,10 @@ export class CloudWriter {
                   label,
                 },
               })
-            : await api("/books", { method: "POST", body: { book: payload } });
+            : await api("/books", {
+                method: "POST",
+                body: { book: payload, requestKey: book.id },
+              });
           this.info = { id: result.id, revision: result.revision };
           if (checkpoint && result.revision === 1) {
             const saved = await api("/books/" + this.info.id, {
@@ -99,7 +107,10 @@ export class CloudWriter {
           }
           return this.info;
         } catch (e) {
-          if (e.code === "version_conflict") this.conflict = true;
+          if (e.code === "version_conflict") {
+            this.conflict = true;
+            if (!this.info && e.bookInfo) this.info = e.bookInfo;
+          }
           if (e.code === "invalid_photo_reference") this.uploads.clear();
           throw e;
         }

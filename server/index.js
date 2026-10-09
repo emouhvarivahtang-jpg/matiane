@@ -89,6 +89,7 @@ export async function createApp(options = {}) {
       "CREATE TABLE IF NOT EXISTS photos (hash TEXT PRIMARY KEY, width INTEGER NOT NULL, height INTEGER NOT NULL, size INTEGER NOT NULL, mime TEXT NOT NULL, orphaned_at TEXT);",
       "CREATE TABLE IF NOT EXISTS photo_owners (user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, hash TEXT NOT NULL REFERENCES photos(hash), PRIMARY KEY(user_id,hash));",
       "CREATE TABLE IF NOT EXISTS books (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, current_revision INTEGER NOT NULL DEFAULT 0, title TEXT NOT NULL, page_count INTEGER NOT NULL, cover TEXT, updated_at TEXT NOT NULL);",
+      "CREATE TABLE IF NOT EXISTS book_imports (user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, request_key TEXT NOT NULL, book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE, PRIMARY KEY(user_id,request_key));",
       "CREATE TABLE IF NOT EXISTS versions (book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE, revision INTEGER NOT NULL, data TEXT NOT NULL, digest TEXT NOT NULL, kind TEXT NOT NULL, label TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(book_id,revision));",
       "CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);",
       "CREATE INDEX IF NOT EXISTS books_user ON books(user_id); CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires);",
@@ -716,7 +717,40 @@ export async function createApp(options = {}) {
       if (route === "/api/books" && req.method === "POST") {
         const data = await body(req);
         const book = validateCloudBook(data.book, userId);
+        const key = data.requestKey;
+        if (
+          key !== undefined &&
+          (typeof key !== "string" || !key.length || key.length > 100)
+        )
+          fail(400, "invalid_request");
         const result = transaction(() => {
+          if (key !== undefined) {
+            const existing = db
+              .prepare(
+                "SELECT book_id FROM book_imports WHERE user_id=? AND request_key=?",
+              )
+              .get(userId, key);
+            if (existing) {
+              const row = ownedBook(existing.book_id, userId);
+              book.id = row.id;
+              const version = db
+                .prepare(
+                  "SELECT digest FROM versions WHERE book_id=? AND revision=?",
+                )
+                .get(row.id, row.current_revision);
+              // Retrying a lost response must neither duplicate a book nor overwrite newer edits.
+              if (version.digest !== hash(JSON.stringify(book))) {
+                const error = new ApiError(409, "version_conflict");
+                error.bookInfo = { id: row.id, revision: row.current_revision };
+                throw error;
+              }
+              return {
+                id: row.id,
+                revision: row.current_revision,
+                unchanged: true,
+              };
+            }
+          }
           if (
             db
               .prepare("SELECT COUNT(*) AS n FROM books WHERE user_id=?")
@@ -732,7 +766,18 @@ export async function createApp(options = {}) {
             book.pageCount,
             iso(),
           );
-          return appendVersion({ id, current_revision: 0 }, book, "auto");
+          const saved = appendVersion(
+            { id, current_revision: 0 },
+            book,
+            "auto",
+          );
+          if (key !== undefined)
+            db.prepare("INSERT INTO book_imports VALUES(?,?,?)").run(
+              userId,
+              key,
+              id,
+            );
+          return saved;
         });
         return respond(res, 201, result);
       }
@@ -805,6 +850,9 @@ export async function createApp(options = {}) {
       if (!res.headersSent)
         respond(res, error instanceof ApiError ? error.status : 500, {
           error: error instanceof ApiError ? error.code : "server_error",
+          ...(error instanceof ApiError && error.bookInfo
+            ? { bookInfo: error.bookInfo }
+            : {}),
         });
       else res.end();
       if (!(error instanceof ApiError))

@@ -26,7 +26,9 @@ export default defineConfig({
           env: {
             SECURE_COOKIES: "false",
             PUBLIC_ORIGIN: "http://127.0.0.1:5173",
-            DATA_DIR: "/tmp/matiane-browser-tests",
+            DATA_DIR:
+              process.env.MATIANE_TEST_DATA_DIR ||
+              `/tmp/matiane-browser-tests-${process.pid}`,
           },
         },
       ],

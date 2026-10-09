@@ -712,31 +712,60 @@ export async function localLoadBook(id, owner = "guest") {
     db.close();
   }
 }
-export async function localDeleteBook(id, owner = "guest") {
+export async function localDeleteBook(id, owner = "guest", expectedUpdatedAt) {
   const db = await database();
   try {
-    await transaction(db, ["books"], "readwrite", (tx) =>
-      tx.objectStore("books").delete(owner + ":" + id),
-    );
+    let deleted = false;
+    await transaction(db, ["books"], "readwrite", (tx) => {
+      const store = tx.objectStore("books"),
+        key = owner + ":" + id;
+      if (expectedUpdatedAt === undefined) {
+        store.delete(key);
+        deleted = true;
+      } else {
+        const request = store.get(key);
+        request.onsuccess = () => {
+          if (request.result?.updatedAt === expectedUpdatedAt) {
+            store.delete(key);
+            deleted = true;
+          }
+        };
+      }
+    });
+    return deleted;
   } finally {
     db.close();
   }
 }
 export async function migrateLocalBook() {
-  if ((await localListBooks()).length) return;
   const db = await database();
-  let legacy;
+  let legacy, migrated;
   try {
-    legacy = await new Promise((resolve, reject) => {
-      const r = db
-        .transaction("projects")
-        .objectStore("projects")
-        .get("current");
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-    });
+    const store = db.transaction("projects").objectStore("projects");
+    [legacy, migrated] = await Promise.all(
+      ["current", "legacy-migrated"].map(
+        (key) =>
+          new Promise((resolve, reject) => {
+            const r = store.get(key);
+            r.onsuccess = () => resolve(r.result);
+            r.onerror = () => reject(r.error);
+          }),
+      ),
+    );
   } finally {
     db.close();
   }
-  if (legacy) await localSaveBook(validateBook(legacy)); // Keep original v1 record intact.
+  if (!legacy || migrated) return;
+  // Earlier releases left the legacy backup after creating its guest copy.
+  if (!(await localListBooks()).length)
+    await localSaveBook(validateBook(legacy));
+  const markerDb = await database();
+  try {
+    await transaction(markerDb, ["projects"], "readwrite", (tx) =>
+      tx.objectStore("projects").put(true, "legacy-migrated"),
+    );
+  } finally {
+    markerDb.close();
+  }
+  // Keep the original v1 record as a backup, but never recreate it after an account import.
 }

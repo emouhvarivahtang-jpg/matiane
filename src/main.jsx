@@ -44,6 +44,7 @@ import {
 } from "./model";
 import { messages, errorMessage } from "./ui-text";
 import { api, CloudWriter } from "./api";
+import { importGuestBooks } from "./local-import";
 import { FORMATS, bookFormat, pageSize } from "./format";
 import { TextControls } from "./text-controls";
 import { PageCanvas, Spread } from "./canvas";
@@ -103,6 +104,12 @@ function App() {
     [modal, setModal] = useState(null),
     [toast, setToast] = useState(""),
     [busy, setBusy] = useState(false),
+    [localImport, setLocalImport] = useState({
+      running: false,
+      done: 0,
+      total: 0,
+      failed: false,
+    }),
     [uploading, setUploading] = useState(false);
   const [history, setHistory] = useState([]),
     [future, setFuture] = useState([]),
@@ -126,6 +133,7 @@ function App() {
     current = useRef(book),
     currentUser = useRef(user),
     localQueue = useRef(Promise.resolve()),
+    importing = useRef(false),
     activeToken = useRef(0);
   current.current = book;
   currentUser.current = user;
@@ -149,15 +157,15 @@ function App() {
       setReady(true);
     })();
   }, []);
-  async function refresh() {
+  async function refresh(account = currentUser.current) {
     try {
-      const local = await localListBooks(owner);
-      const guest = owner === "guest" ? [] : await localListBooks("guest");
-      if (user && accountsAvailable) {
+      const local = await localListBooks(account?.id || "guest");
+      const guest = account ? await localListBooks("guest") : [];
+      if (account && accountsAvailable) {
         const remote = await api("/books");
         setCloudBooks(remote.books);
         setStorage(remote.storageUsed);
-        if (user.isAdmin) {
+        if (account.isAdmin) {
           const all = await api("/admin/books");
           setAdminBooks(all.books);
           setAdminTotal(all.total);
@@ -177,6 +185,56 @@ function App() {
     const timer = setInterval(() => refresh(), 30000);
     return () => clearInterval(timer);
   }, [ready, user, book]);
+  async function syncLocalBooks(account = currentUser.current) {
+    if (!account || importing.current) return;
+    importing.current = true;
+    setBusy(true);
+    setLocalImport((s) => ({ ...s, running: true, failed: false }));
+    try {
+      await localQueue.current.catch(() => {});
+      const result = await importGuestBooks(account.id, {
+        onProgress: (p) =>
+          setLocalImport({ ...p, running: true, failed: false }),
+        onSaved: (snapshot, info) => {
+          if (current.current?.id === snapshot.id && !readOnly) {
+            writer.current = new CloudWriter(info);
+            setCloudStatus("cloudSaved");
+            setCloudError(null);
+          }
+        },
+      });
+      setLocalImport({
+        running: false,
+        done: result.saved.size,
+        total: result.total,
+        failed: result.errors.length > 0,
+      });
+      if (result.errors.length)
+        setToast(
+          t.localImportFailed + " " + errorMessage(result.errors[0].error, t),
+        );
+      else if (result.total) setToast(t.localImportDone);
+    } catch (error) {
+      setLocalImport((s) => ({ ...s, running: false, failed: true }));
+      setToast(t.localImportFailed + " " + errorMessage(error, t));
+    } finally {
+      if (current.current && !readOnly && !writer.current)
+        writer.current = new CloudWriter();
+      importing.current = false;
+      setBusy(false);
+      await refresh(account);
+    }
+  }
+  useEffect(() => {
+    if (ready && user) syncLocalBooks(user);
+  }, [ready, user?.id]);
+  useEffect(() => {
+    const online = () => {
+      if (currentUser.current && !current.current && !busy) syncLocalBooks();
+    };
+    window.addEventListener("online", online);
+    return () => window.removeEventListener("online", online);
+  }, [busy]);
   useEffect(() => {
     document.documentElement.lang = language;
     localStorage.setItem("matiane-language", language);
@@ -193,7 +251,7 @@ function App() {
     return localQueue.current;
   }
   useEffect(() => {
-    if (!book || readOnly) return;
+    if (!book || readOnly || localImport.running) return;
     setLocalStatus("saving");
     const snapshot = book,
       w = writer.current,
@@ -209,7 +267,7 @@ function App() {
         });
     }, 350);
     return () => clearTimeout(timer);
-  }, [book, owner, readOnly]);
+  }, [book, owner, readOnly, localImport.running]);
   async function saveCloud(snapshot = current.current, options = {}) {
     const w = writer.current,
       token = activeToken.current,
@@ -236,11 +294,11 @@ function App() {
     }
   }
   useEffect(() => {
-    if (!book || !user || !writer.current) return;
+    if (!book || !user || !writer.current || localImport.running) return;
     setCloudStatus("savingCloud");
     const timer = setTimeout(() => saveCloud(book).catch(() => {}), 2300);
     return () => clearTimeout(timer);
-  }, [book, user]);
+  }, [book, user, localImport.running]);
   useEffect(() => {
     const leave = (e) => {
       if (
@@ -264,6 +322,36 @@ function App() {
       if (e.origin !== oldOrigin || e.source !== window.opener) return;
       if (e.data?.type === "matiane-ping") {
         e.source.postMessage({ type: "matiane-ready" }, oldOrigin);
+        return;
+      }
+      if (e.data?.type === "matiane-transfer-books") {
+        try {
+          if (!Array.isArray(e.data.books) || e.data.books.length > 100)
+            throw new Error("invalid transfer");
+          const imported = e.data.books.map((b) => validateBook(b));
+          for (let next of imported) {
+            const existing =
+              (await localLoadBook(next.id, "guest")) ||
+              (currentUser.current &&
+                (await localLoadBook(next.id, currentUser.current.id)));
+            if (existing) {
+              if (JSON.stringify(existing.book) === JSON.stringify(next))
+                continue;
+              // Preserve a different draft already stored at the destination.
+              next = forkBook(next);
+            }
+            await localSaveBook(next, "guest");
+          }
+          e.source.postMessage({ type: "matiane-transfer-done" }, oldOrigin);
+          if (currentUser.current) await syncLocalBooks();
+          else {
+            await refresh();
+            setModal("auth");
+            setToast(t.transferDone);
+          }
+        } catch {
+          setToast(t.importError);
+        }
         return;
       }
       if (e.data?.type !== "matiane-transfer") return;
@@ -370,13 +458,23 @@ function App() {
     setBusy(false);
   }
   async function authenticated(value) {
+    setBusy(true);
+    setLocalImport((s) => ({ ...s, running: true, failed: false }));
+    if (current.current && !currentUser.current && !readOnly) {
+      try {
+        // Flush the open book too: registration can happen before the local autosave timer fires.
+        await localSave(current.current, "guest", null);
+      } catch {
+        setToast(t.storageError);
+      }
+    }
     setRecords([]);
     setCloudBooks([]);
     setAdminBooks([]);
     setUser(value.user);
     currentUser.current = value.user;
     if (current.current) {
-      writer.current = new CloudWriter();
+      writer.current = null;
       setCloudStatus("savingCloud");
     }
     setModal(null);
@@ -663,16 +761,28 @@ function App() {
       setBusy(false);
     }
   }
-  async function transfer() {
+  async function transfer(all = false) {
+    if (busy || uploading) return;
     const popup = window.open(SECURE_STUDIO + "/?transfer=1", "matiane-secure");
     if (!popup) {
-      await saveProject();
+      if (book) await saveProject();
       setToast(t.transferFailed);
       return;
     }
     setBusy(true);
     try {
-      const snapshot = await portableBook(book);
+      let snapshot, books;
+      if (all) {
+        if (current.current) await localSave(current.current, "guest", null);
+        await localQueue.current;
+        const local = await localListBooks("guest");
+        books = [];
+        for (const record of local)
+          books.push(
+            await portableBook((await localLoadBook(record.id, "guest")).book),
+          );
+        if (!books.length) return;
+      } else snapshot = await portableBook(book);
       const ack = await new Promise((resolve) => {
         let sent = false;
         const receive = (e) => {
@@ -681,7 +791,9 @@ function App() {
           if (e.data?.type === "matiane-ready" && !sent) {
             sent = true;
             popup.postMessage(
-              { type: "matiane-transfer", book: snapshot },
+              all
+                ? { type: "matiane-transfer-books", books }
+                : { type: "matiane-transfer", book: snapshot },
               new URL(SECURE_STUDIO).origin,
             );
           }
@@ -702,11 +814,14 @@ function App() {
         );
       });
       if (!ack) {
-        download(
-          JSON.stringify(snapshot),
-          filename() + ".matiane.json",
-          "application/json",
-        );
+        for (const backup of all ? books : [snapshot])
+          download(
+            JSON.stringify(backup),
+            (backup.title
+              .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "")
+              .slice(0, 80) || "Matiane") + ".matiane.json",
+            "application/json",
+          );
         setToast(t.transferFailed);
       } else setToast(t.transferDone);
     } catch {
@@ -876,9 +991,7 @@ function App() {
           <button
             className="secondary"
             onClick={() =>
-              accountsAvailable
-                ? setModal("auth")
-                : window.open(SECURE_STUDIO, "_blank", "noopener")
+              accountsAvailable ? setModal("auth") : transfer(true)
             }
           >
             {accountsAvailable ? t.account : t.secureVersion}
@@ -904,6 +1017,28 @@ function App() {
   return (
     <>
       {header}
+      {user && (localImport.running || localImport.failed) && (
+        <div
+          className="account-invitation local-import"
+          role="status"
+          aria-live="polite"
+        >
+          <p>
+            {localImport.running
+              ? `${t.localImportProgress} ${localImport.done} / ${localImport.total}`
+              : t.localImportFailed}
+          </p>
+          {!localImport.running && (
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() => syncLocalBooks()}
+            >
+              {t.retryLocalImport}
+            </button>
+          )}
+        </div>
+      )}
       {!book ? (
         <main className="cabinet">
           <div className="cabinet-heading">
@@ -936,9 +1071,7 @@ function App() {
               <button
                 className="text-button"
                 onClick={() =>
-                  accountsAvailable
-                    ? setModal("auth")
-                    : window.open(SECURE_STUDIO, "_blank", "noopener")
+                  accountsAvailable ? setModal("auth") : transfer(true)
                 }
               >
                 {accountsAvailable ? t.account : t.secureVersion} →
@@ -1355,14 +1488,18 @@ function App() {
                     </button>
                     <IconButton
                       title={t.moveLeft}
-                      disabled={readOnly || index <= 1 || index > book.pageCount}
+                      disabled={
+                        readOnly || index <= 1 || index > book.pageCount
+                      }
                       onClick={() => move(index, index - 1)}
                     >
                       <ArrowLeft size={14} />
                     </IconButton>
                     <IconButton
                       title={t.moveRight}
-                      disabled={readOnly || index < 1 || index >= book.pageCount}
+                      disabled={
+                        readOnly || index < 1 || index >= book.pageCount
+                      }
                       onClick={() => move(index, index + 1)}
                     >
                       <ArrowRight size={14} />

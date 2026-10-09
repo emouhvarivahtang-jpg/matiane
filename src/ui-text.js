@@ -1,6 +1,11 @@
 import { translations } from "./i18n";
 const extra = {
   en: {
+    localImportProgress: "Saving your local books in your account…",
+    localImportDone: "Your local books are saved in your account.",
+    localImportFailed:
+      "Some books could not be uploaded. Their local drafts are safe.",
+    retryLocalImport: "Retry upload",
     pdfQuality: "PDF image quality",
     pdfSourceQuality: "Source quality · keep image data",
     pdfPrintQuality: "Print 300 DPI · smaller file",
@@ -142,6 +147,11 @@ const extra = {
     saved: "Saved on this device",
   },
   ru: {
+    localImportProgress: "Сохраняем локальные книги в ваш аккаунт…",
+    localImportDone: "Локальные книги сохранены в вашем аккаунте.",
+    localImportFailed:
+      "Не все книги удалось загрузить. Локальные черновики сохранены.",
+    retryLocalImport: "Повторить загрузку",
     pdfQuality: "Качество изображений PDF",
     pdfSourceQuality: "Исходное качество · без изменения фото",
     pdfPrintQuality: "Для печати 300 DPI · меньше файл",
@@ -373,6 +383,11 @@ const extra = {
       "Примеры нужны для знакомства. Для печати используйте свои фото высокого разрешения.",
   },
   ka: {
+    localImportProgress: "ლოკალური წიგნები თქვენს ანგარიშში ინახება…",
+    localImportDone: "ლოკალური წიგნები თქვენს ანგარიშში შენახულია.",
+    localImportFailed:
+      "ზოგი წიგნი ვერ აიტვირთა. ლოკალური მონახაზები შენახულია.",
+    retryLocalImport: "ატვირთვის გამეორება",
     pdfQuality: "PDF-ის გამოსახულებების ხარისხი",
     pdfSourceQuality: "საწყისი ხარისხი · უცვლელი ფოტოები",
     pdfPrintQuality: "ბეჭდვისთვის 300 DPI · მცირე ფაილი",
