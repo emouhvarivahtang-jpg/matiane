@@ -96,6 +96,433 @@ const photo = () =>
   })
     .jpeg()
     .toBuffer();
+const aiPhoto = async (id = "photo-one") => ({
+  id,
+  width: 1200,
+  height: 800,
+  image: "data:image/jpeg;base64," + (await photo()).toString("base64"),
+});
+const aiResult = (kind, payload) => {
+  if (kind === "analysis")
+    return {
+      content: {
+        description: "A calm green scene.",
+        scene: "nature",
+        group: "outdoors",
+        mood: "peaceful",
+        importance: 0.8,
+        subjectCenter: [0.5, 0.5],
+        caption: "Little moments, together.",
+      },
+      neurons: 5,
+    };
+  const input = JSON.parse(payload.messages[1].content);
+  const groupSize = Math.max(
+    1,
+    Math.ceil(input.photos.length / input.pageCount),
+  );
+  return {
+    content: {
+      pages: Array.from(
+        { length: Math.ceil(input.photos.length / groupSize) },
+        (_, i) => ({
+          photoIds: input.photos
+            .slice(i * groupSize, (i + 1) * groupSize)
+            .map((p) => p.id),
+          layout:
+            groupSize >= 3 ? "grid" : groupSize === 2 ? "pair" : "editorial",
+          caption: "",
+          color: "#FAF8F3",
+        }),
+      ),
+    },
+    neurons: 8,
+  };
+};
+async function waitAi(f, job, user) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const result = await f.request("/ai/jobs/" + job.id, {
+      user,
+      headers: { "X-Matiane-AI-Token": job.token },
+    });
+    if (result.status !== 200 || result.data.status !== "processing")
+      return result;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("AI job did not complete");
+}
+test("guest AI assembly requires its capability, reduces images, returns only analyses and plans, and reuses owner-scoped cache", async (t) => {
+  const calls = [];
+  const f = await setup(t, {
+    aiProvider: async ({ kind, payload }) => {
+      calls.push({ kind, payload });
+      if (kind === "analysis") {
+        const image = payload.messages[1].content[1].image_url.url;
+        const metadata = await sharp(
+          Buffer.from(image.split(",")[1], "base64"),
+        ).metadata();
+        assert.ok(metadata.width <= 640 && metadata.height <= 640);
+      }
+      return aiResult(kind, payload);
+    },
+  });
+  const image = await aiPhoto();
+  const input = { language: "ru", pageCount: 40, photos: [image] };
+  assert.equal(
+    (await f.request("/ai/assemble", { method: "POST", body: input })).status,
+    403,
+  );
+  const session = await f.request("/ai/session");
+  assert.equal(session.data.available, true);
+  const headers = { "X-Matiane-AI-Guest": session.data.guestToken };
+  const first = await f.request("/ai/assemble", {
+    method: "POST",
+    body: input,
+    headers,
+  });
+  assert.equal(first.status, 202);
+  const result = await waitAi(f, first.data);
+  assert.equal(result.data.status, "completed");
+  assert.equal(result.data.result.analysis[0].id, image.id);
+  assert.deepEqual(result.data.result.plan.pages[0].photoIds, [image.id]);
+  assert.equal(JSON.stringify(result.data).includes("data:image"), false);
+  assert.ok(calls[0].payload.messages[0].content.includes("Russian"));
+  const repeated = await f.request("/ai/assemble", {
+    method: "POST",
+    body: input,
+    headers,
+  });
+  assert.equal((await waitAi(f, repeated.data)).data.status, "completed");
+  assert.equal(calls.filter((call) => call.kind === "analysis").length, 1);
+  await f.restart();
+  const newSession = await f.request("/ai/session");
+  const afterRestart = await f.request("/ai/assemble", {
+    method: "POST",
+    body: input,
+    headers: { "X-Matiane-AI-Guest": newSession.data.guestToken },
+  });
+  assert.equal((await waitAi(f, afterRestart.data)).data.status, "completed");
+  assert.equal(calls.filter((call) => call.kind === "analysis").length, 1);
+  const user = await f.register("ai-cache-owner@example.invalid");
+  const ownedRun = await f.request("/ai/assemble", {
+    method: "POST",
+    body: input,
+    user,
+  });
+  assert.equal((await waitAi(f, ownedRun.data, user)).data.status, "completed");
+  assert.equal(calls.filter((call) => call.kind === "analysis").length, 2);
+});
+test("AI jobs enforce account ownership, CSRF, origin and private photo references without arbitrary URL fetching", async (t) => {
+  let calls = 0;
+  const f = await setup(t, {
+    aiProvider: async ({ kind, payload }) => {
+      calls++;
+      return aiResult(kind, payload);
+    },
+  });
+  const owner = await f.register("ai-owner@example.invalid"),
+    stranger = await f.register("ai-stranger@example.invalid");
+  const uploaded = await f.request("/photos", {
+    method: "POST",
+    body: await photo(),
+    user: owner,
+  });
+  const input = {
+    language: "ka",
+    pageCount: 40,
+    photos: [{ id: "cloud-photo", ...uploaded.data }],
+  };
+  assert.equal(
+    (
+      await f.request("/ai/assemble", {
+        method: "POST",
+        body: input,
+        user: stranger,
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await f.request("/ai/assemble", {
+        method: "POST",
+        body: input,
+        user: owner,
+        headers: { "X-CSRF-Token": "wrong" },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await f.request("/ai/assemble", {
+        method: "POST",
+        body: input,
+        user: owner,
+        headers: { Origin: "https://unrelated.invalid" },
+      })
+    ).status,
+    403,
+  );
+  const ssrf = structuredClone(input);
+  ssrf.photos[0].src = "http://169.254.169.254/latest/meta-data";
+  assert.equal(
+    (
+      await f.request("/ai/assemble", {
+        method: "POST",
+        body: ssrf,
+        user: owner,
+      })
+    ).status,
+    400,
+  );
+  assert.equal(calls, 0);
+  const oversized = structuredClone(input);
+  oversized.photos[0].width = 5001;
+  assert.equal(
+    (
+      await f.request("/ai/assemble", {
+        method: "POST",
+        body: oversized,
+        user: owner,
+      })
+    ).status,
+    400,
+  );
+  assert.equal(calls, 0);
+  const job = await f.request("/ai/assemble", {
+    method: "POST",
+    body: input,
+    user: owner,
+  });
+  assert.equal(job.status, 202);
+  const headers = { "X-Matiane-AI-Token": job.data.token };
+  assert.equal(
+    (await f.request("/ai/jobs/" + job.data.id, { headers })).status,
+    404,
+  );
+  assert.equal(
+    (await f.request("/ai/jobs/" + job.data.id, { user: stranger, headers }))
+      .status,
+    404,
+  );
+  assert.equal(
+    (
+      await f.request("/ai/jobs/" + job.data.id, {
+        method: "DELETE",
+        user: stranger,
+        headers,
+      })
+    ).status,
+    404,
+  );
+  assert.equal((await waitAi(f, job.data, owner)).data.status, "completed");
+  assert.equal(
+    (await f.request("/books", { user: owner })).data.books.length,
+    0,
+  );
+  assert.equal(
+    (
+      await f.request("/ai/jobs/" + job.data.id, {
+        user: owner,
+        headers: { "X-Matiane-AI-Token": "wrong" },
+      })
+    ).status,
+    404,
+  );
+});
+test("owned static WebP originals are safely reduced for AI without changing their bytes", async (t) => {
+  const f = await setup(t, {
+    aiProvider: async ({ kind, payload }) => aiResult(kind, payload),
+  });
+  const owner = await f.register("ai-webp-owner@example.invalid");
+  const bytes = await sharp({
+    create: { width: 1200, height: 800, channels: 3, background: "#8daea7" },
+  })
+    .webp()
+    .toBuffer();
+  const hash = "f".repeat(64);
+  const target = path.join(f.dir, "photos", hash);
+  await fs.writeFile(target, bytes);
+  f.app.db
+    .prepare("INSERT INTO photos VALUES(?,?,?,?,?,NULL)")
+    .run(hash, 1200, 800, bytes.length, "image/webp");
+  f.app.db.prepare("INSERT INTO photo_owners VALUES(?,?)").run(owner.id, hash);
+  const job = await f.request("/ai/assemble", {
+    method: "POST",
+    user: owner,
+    body: {
+      language: "en",
+      pageCount: 40,
+      photos: [
+        {
+          id: "webp-original",
+          width: 1200,
+          height: 800,
+          src: "/api/photos/" + hash,
+        },
+      ],
+    },
+  });
+  assert.equal(job.status, 202);
+  assert.equal((await waitAi(f, job.data, owner)).data.status, "completed");
+  assert.deepEqual(await fs.readFile(target), bytes);
+});
+test("cached books can be assembled again at the photo allowance and all 200 photos fit an enlarged book", async (t) => {
+  let analysisCalls = 0;
+  const f = await setup(t, {
+    aiProvider: async ({ kind, payload }) => {
+      if (kind === "analysis") analysisCalls++;
+      return aiResult(kind, payload);
+    },
+  });
+  const photos = await Promise.all(
+    Array.from({ length: 200 }, async (_, i) => ({
+      id: "memory-" + i,
+      width: 1,
+      height: 1,
+      image:
+        "data:image/png;base64," +
+        (
+          await sharp({
+            create: {
+              width: 1,
+              height: 1,
+              channels: 3,
+              background: { r: i, g: 80, b: 120 },
+            },
+          })
+            .png()
+            .toBuffer()
+        ).toString("base64"),
+    })),
+  );
+  const session = await f.request("/ai/session");
+  const headers = { "X-Matiane-AI-Guest": session.data.guestToken };
+  const input = { language: "en", pageCount: 40, photos };
+  const first = await f.request("/ai/assemble", {
+    method: "POST",
+    body: input,
+    headers,
+  });
+  assert.equal(first.status, 202);
+  const result = await waitAi(f, first.data);
+  assert.equal(result.data.status, "completed");
+  assert.equal(result.data.result.analysis.length, 200);
+  assert.ok(result.data.result.plan.pages.length <= 60);
+  assert.deepEqual(
+    result.data.result.plan.pages.flatMap((page) => page.photoIds),
+    photos.map((photo) => photo.id),
+  );
+  assert.equal(analysisCalls, 200);
+  const second = await f.request("/ai/assemble", {
+    method: "POST",
+    body: input,
+    headers,
+  });
+  assert.equal(second.status, 202);
+  assert.equal((await waitAi(f, second.data)).data.status, "completed");
+  assert.equal(analysisCalls, 200);
+  const newPhoto = await f.request("/ai/assemble", {
+    method: "POST",
+    body: { ...input, photos: [await aiPhoto("new-memory")] },
+    headers,
+  });
+  assert.equal(newPhoto.status, 429);
+  assert.equal(newPhoto.data.error, "ai_daily_limit");
+});
+test("cancelled AI jobs discard late results, free concurrency and retain persistent daily budget limits", async (t) => {
+  let entered;
+  const began = new Promise((resolve) => {
+    entered = resolve;
+  });
+  const f = await setup(t, {
+    aiMaxActive: 1,
+    aiDailyNeurons: 1000,
+    aiProvider: async ({ kind, payload, signal }) => {
+      if (kind === "analysis") {
+        entered();
+        await new Promise((resolve, reject) => {
+          signal.addEventListener("abort", () => reject(signal.reason), {
+            once: true,
+          });
+        });
+      }
+      return aiResult(kind, payload);
+    },
+  });
+  const session = await f.request("/ai/session");
+  const headers = { "X-Matiane-AI-Guest": session.data.guestToken };
+  const input = { language: "en", pageCount: 40, photos: [await aiPhoto()] };
+  const job = await f.request("/ai/assemble", {
+    method: "POST",
+    body: input,
+    headers,
+  });
+  await began;
+  assert.equal(
+    (await f.request("/ai/assemble", { method: "POST", body: input, headers }))
+      .data.error,
+    "ai_busy",
+  );
+  const cancelled = await f.request("/ai/jobs/" + job.data.id, {
+    method: "DELETE",
+    headers: { "X-Matiane-AI-Token": job.data.token },
+  });
+  assert.equal(cancelled.data.status, "cancelled");
+  assert.equal((await waitAi(f, job.data)).data.result, undefined);
+  await f.restart();
+  const nextSession = await f.request("/ai/session");
+  const heavy = {
+    ...input,
+    photos: Array.from({ length: 21 }, (_, i) => ({
+      ...input.photos[0],
+      id: "photo-" + i,
+    })),
+  };
+  const limited = await f.request("/ai/assemble", {
+    method: "POST",
+    body: heavy,
+    headers: { "X-Matiane-AI-Guest": nextSession.data.guestToken },
+  });
+  assert.equal(limited.status, 429);
+  assert.equal(limited.data.error, "ai_daily_limit");
+});
+test("invalid AI provider plans fail safely and unavailable provider is reported without changing saved books", async (t) => {
+  const f = await setup(t, {
+    aiProvider: async ({ kind, payload }) =>
+      kind === "analysis"
+        ? aiResult(kind, payload)
+        : {
+            content: {
+              pages: [{ photoIds: ["invented-photo"], layout: "full" }],
+            },
+          },
+  });
+  const session = await f.request("/ai/session");
+  const job = await f.request("/ai/assemble", {
+    method: "POST",
+    body: { language: "en", pageCount: 40, photos: [await aiPhoto()] },
+    headers: { "X-Matiane-AI-Guest": session.data.guestToken },
+  });
+  const result = await waitAi(f, job.data);
+  assert.equal(result.data.status, "failed");
+  assert.equal(result.data.error, "ai_invalid_response");
+  assert.equal(result.data.result, undefined);
+  const absent = await setup(t, {
+    cloudflareAccountId: "",
+    cloudflareToken: "",
+  });
+  const absentSession = await absent.request("/ai/session");
+  assert.equal(absentSession.data.available, false);
+  const unavailable = await absent.request("/ai/assemble", {
+    method: "POST",
+    body: { language: "en", pageCount: 40, photos: [await aiPhoto()] },
+    headers: { "X-Matiane-AI-Guest": absentSession.data.guestToken },
+  });
+  assert.equal(unavailable.status, 503);
+  assert.equal(unavailable.data.error, "ai_not_configured");
+});
 test("local book imports survive retries and restarts without duplicates or overwriting later edits", async (t) => {
   const f = await setup(t, { adminEmails: "admin-import@example.invalid" });
   const owner = await f.register("import-owner@example.invalid"),

@@ -4,6 +4,7 @@ import {
   randomBytes,
   randomUUID,
   createHash,
+  createHmac,
   scrypt,
   timingSafeEqual,
 } from "node:crypto";
@@ -15,6 +16,7 @@ import sharp from "sharp";
 sharp.cache({ memory: 32, files: 0, items: 50 });
 sharp.concurrency(1);
 import { validateBook, forkBook } from "../src/model.js";
+import { AiError, cloudflareProvider, createAiJobs } from "./ai-assembly.js";
 
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const derive = promisify(scrypt);
@@ -92,6 +94,8 @@ export async function createApp(options = {}) {
       "CREATE TABLE IF NOT EXISTS book_imports (user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, request_key TEXT NOT NULL, book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE, PRIMARY KEY(user_id,request_key));",
       "CREATE TABLE IF NOT EXISTS versions (book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE, revision INTEGER NOT NULL, data TEXT NOT NULL, digest TEXT NOT NULL, kind TEXT NOT NULL, label TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(book_id,revision));",
       "CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);",
+      "CREATE TABLE IF NOT EXISTS ai_analysis (key TEXT PRIMARY KEY, data TEXT NOT NULL, created_at TEXT NOT NULL);",
+      "CREATE TABLE IF NOT EXISTS ai_budgets (key TEXT PRIMARY KEY, day TEXT NOT NULL, photos INTEGER NOT NULL DEFAULT 0, neurons REAL NOT NULL DEFAULT 0, reserved REAL NOT NULL DEFAULT 0);",
       "CREATE INDEX IF NOT EXISTS books_user ON books(user_id); CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires);",
     ].join("\n"),
   );
@@ -139,6 +143,152 @@ export async function createApp(options = {}) {
       row && row.expires > now ? row.expires : now + seconds * 1000,
     );
   }
+  const aiGuestSecret = randomBytes(32);
+  const requestIp = (req) =>
+    trustProxy
+      ? String(req.headers["x-real-ip"] || req.socket.remoteAddress)
+      : req.socket.remoteAddress;
+  const aiGuestOwner = (req) => "guest:" + hash(requestIp(req));
+  function aiGuestToken(req) {
+    const value = Buffer.from(
+      JSON.stringify({
+        owner: aiGuestOwner(req),
+        expires: Date.now() + 3600_000,
+        nonce: randomBytes(12).toString("hex"),
+      }),
+    ).toString("base64url");
+    return (
+      value +
+      "." +
+      createHmac("sha256", aiGuestSecret).update(value).digest("base64url")
+    );
+  }
+  function validateAiGuest(req) {
+    const token = req.headers["x-matiane-ai-guest"];
+    if (typeof token !== "string" || token.length > 512)
+      fail(403, "ai_guest_token_required");
+    const [value, signature, extra] = token.split(".");
+    if (
+      !value ||
+      !signature ||
+      extra ||
+      !same(
+        signature,
+        createHmac("sha256", aiGuestSecret).update(value).digest("base64url"),
+      )
+    )
+      fail(403, "ai_guest_token_required");
+    try {
+      const parsed = JSON.parse(Buffer.from(value, "base64url").toString());
+      if (parsed.owner !== aiGuestOwner(req) || parsed.expires < Date.now())
+        fail(403, "ai_guest_token_required");
+    } catch {
+      fail(403, "ai_guest_token_required");
+    }
+    return aiGuestOwner(req);
+  }
+  function reserveAiBudget(owner, photoCount, neurons) {
+    return transaction(() => {
+      const day = iso().slice(0, 10);
+      const keys = [hash("ai-owner:" + owner), hash("ai-global")];
+      const rows = keys.map((key) => {
+        let row = db.prepare("SELECT * FROM ai_budgets WHERE key=?").get(key);
+        if (!row || row.day !== day) {
+          db.prepare(
+            "INSERT INTO ai_budgets(key,day) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET day=excluded.day,photos=0,neurons=0,reserved=0",
+          ).run(key, day);
+          row = { key, day, photos: 0, neurons: 0, reserved: 0 };
+        }
+        return row;
+      });
+      const perOwner = owner.startsWith("guest:") ? 200 : 400;
+      if (rows[0].photos + photoCount > perOwner)
+        throw new AiError("ai_daily_limit", 429);
+      const limit = Math.min(
+        8000,
+        Math.max(
+          1000,
+          Number(
+            options.aiDailyNeurons || process.env.MATIANE_AI_DAILY_NEURONS,
+          ) || 8000,
+        ),
+      );
+      if (rows[1].neurons + rows[1].reserved + neurons > limit)
+        throw new AiError("ai_daily_limit", 429);
+      for (const row of rows)
+        db.prepare(
+          "UPDATE ai_budgets SET photos=photos+?,reserved=reserved+? WHERE key=?",
+        ).run(photoCount, neurons, row.key);
+      return { keys, day, neurons, photoCount };
+    });
+  }
+  function finishAiBudget(
+    reservation,
+    neurons,
+    { analysedPhotos = reservation?.photoCount || 0, unknownCost = false } = {},
+  ) {
+    if (!reservation) return;
+    transaction(() => {
+      const charged = unknownCost
+        ? Math.max(reservation.neurons, neurons)
+        : neurons;
+      const unusedPhotos = Math.max(0, reservation.photoCount - analysedPhotos);
+      for (const key of reservation.keys)
+        db.prepare(
+          "UPDATE ai_budgets SET reserved=MAX(0,reserved-?),neurons=neurons+?,photos=MAX(0,photos-?) WHERE key=? AND day=?",
+        ).run(
+          reservation.neurons,
+          Math.max(0, charged),
+          unusedPhotos,
+          key,
+          reservation.day,
+        );
+    });
+  }
+  const ai = createAiJobs({
+    provider:
+      options.aiProvider ??
+      cloudflareProvider({
+        accountId:
+          options.cloudflareAccountId ?? process.env.CLOUDFLARE_ACCOUNT_ID,
+        token: options.cloudflareToken ?? process.env.CLOUDFLARE_API_TOKEN,
+      }),
+    maxActive: options.aiMaxActive ?? 2,
+    readPhoto: async (photoHash, owner) => {
+      if (
+        !owner.startsWith("user:") ||
+        !db
+          .prepare("SELECT 1 FROM photo_owners WHERE user_id=? AND hash=?")
+          .get(owner.slice(5), photoHash)
+      )
+        throw new AiError("invalid_photo_reference", 400);
+      return fs.readFile(path.join(photoDir, photoHash));
+    },
+    cacheGet: (key) => {
+      const row = db
+        .prepare("SELECT data FROM ai_analysis WHERE key=?")
+        .get(key);
+      if (!row) return null;
+      try {
+        return JSON.parse(row.data);
+      } catch {
+        return null;
+      }
+    },
+    cacheSet: (key, analysis) => {
+      db.prepare("INSERT OR REPLACE INTO ai_analysis VALUES(?,?,?)").run(
+        key,
+        JSON.stringify(analysis),
+        iso(),
+      );
+      if (db.prepare("SELECT COUNT(*) AS n FROM ai_analysis").get().n > 5000)
+        db.exec(
+          "DELETE FROM ai_analysis WHERE key IN(SELECT key FROM ai_analysis ORDER BY created_at ASC LIMIT 100)",
+        );
+    },
+    budgetReserve: reserveAiBudget,
+    budgetFinish: finishAiBudget,
+  });
   function userSession(req) {
     const cookie = (req.headers.cookie || "")
       .split(";")
@@ -331,6 +481,55 @@ export async function createApp(options = {}) {
           user: session ? publicUser(session.user_id, session.email) : null,
           csrfToken: session?.csrf || null,
         });
+      }
+      if (route === "/api/ai/session" && req.method === "GET") {
+        if (req.headers["x-matiane-client"] !== "studio")
+          fail(403, "forbidden_origin");
+        consumeRate("ai-session:" + requestIp(req), 60, 3600);
+        return respond(res, 200, {
+          available: ai.available,
+          guestToken: aiGuestToken(req),
+          maxPhotos: 200,
+          maxImageSide: 640,
+        });
+      }
+      if (route === "/api/ai/assemble" && req.method === "POST") {
+        const session = userSession(req);
+        mutation(req, session);
+        const owner = session
+          ? "user:" + session.user_id
+          : validateAiGuest(req);
+        consumeRate("ai-start-ip:" + requestIp(req), 12, 3600);
+        const input = await body(req, 32 * 1024 * 1024);
+        if (Array.isArray(input?.photos))
+          for (const photo of input.photos)
+            if (photo?.src) {
+              if (
+                !session ||
+                !/^\/api\/photos\/[a-f0-9]{64}$/.test(photo.src) ||
+                !db
+                  .prepare(
+                    "SELECT 1 FROM photo_owners WHERE user_id=? AND hash=?",
+                  )
+                  .get(session.user_id, photo.src.slice(12))
+              )
+                fail(400, "invalid_photo_reference");
+            }
+        return respond(res, 202, await ai.start(input, owner));
+      }
+      const aiMatch = route.match(/^\/api\/ai\/jobs\/([a-f0-9-]{36})$/);
+      if (aiMatch && ["GET", "DELETE"].includes(req.method)) {
+        const session = userSession(req);
+        const owner = session ? "user:" + session.user_id : null;
+        if (req.method === "DELETE") mutation(req, session);
+        const token = req.headers["x-matiane-ai-token"];
+        return respond(
+          res,
+          200,
+          req.method === "DELETE"
+            ? ai.cancel(aiMatch[1], token, owner)
+            : ai.status(aiMatch[1], token, owner),
+        );
       }
       if (
         req.method === "POST" &&
@@ -848,14 +1047,23 @@ export async function createApp(options = {}) {
       fail(405, "invalid_request");
     } catch (error) {
       if (!res.headersSent)
-        respond(res, error instanceof ApiError ? error.status : 500, {
-          error: error instanceof ApiError ? error.code : "server_error",
-          ...(error instanceof ApiError && error.bookInfo
-            ? { bookInfo: error.bookInfo }
-            : {}),
-        });
+        respond(
+          res,
+          error instanceof ApiError || error instanceof AiError
+            ? error.status
+            : 500,
+          {
+            error:
+              error instanceof ApiError || error instanceof AiError
+                ? error.code
+                : "server_error",
+            ...(error instanceof ApiError && error.bookInfo
+              ? { bookInfo: error.bookInfo }
+              : {}),
+          },
+        );
       else res.end();
-      if (!(error instanceof ApiError))
+      if (!(error instanceof ApiError) && !(error instanceof AiError))
         console.error("Matiane request failed:", error.code || error.name); // No payloads, credentials or user photographs.
     }
   });
@@ -888,6 +1096,9 @@ export async function createApp(options = {}) {
   async function maintenance() {
     db.prepare("DELETE FROM sessions WHERE expires<?").run(Date.now());
     db.prepare("DELETE FROM rate_limits WHERE expires<?").run(Date.now());
+    db.prepare("DELETE FROM ai_analysis WHERE created_at<?").run(
+      new Date(Date.now() - 30 * 86400000).toISOString(),
+    );
     const old = new Date(Date.now() - 30 * 86400000).toISOString();
     for (const row of db
       .prepare("SELECT hash FROM photos WHERE orphaned_at<?")
@@ -927,6 +1138,7 @@ export async function createApp(options = {}) {
     dataDir,
     close: async () => {
       if (timer) clearInterval(timer);
+      await ai.close();
       await new Promise((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),
       );
