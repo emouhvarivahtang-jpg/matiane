@@ -10,6 +10,7 @@ import {
 } from "./model";
 import { browserCaption, fontFamily } from "./text";
 import { pageSize, coverSize, bookFormat, spineTextBox } from "./format";
+import { PhotoImage } from "./photo-view";
 const pct = (n) => `${n}%`;
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
@@ -37,7 +38,7 @@ export function FitSpread({ book, spreadIndex, children }) {
   const ratio = (spreadIndex === 0 ? size.w : size.w * 2) / size.h;
   const width = Math.max(
     0,
-    Math.min(bounds.width - 16, (bounds.height - 44) * ratio, 1080),
+    Math.min(bounds.width - 16, (bounds.height - 36) * ratio),
   );
   return (
     <div
@@ -216,17 +217,9 @@ export function PhotoFrame({
       }}
     >
       {photo ? (
-        <img
-          src={
-            tiny
-              ? photo.thumbnail ||
-                (photo.src.startsWith("/api/photos/")
-                  ? photo.src + "?thumbnail=1"
-                  : photo.src)
-              : photo.src
-          }
-          alt={photo.name}
-          draggable={false}
+        <PhotoImage
+          photo={photo}
+          tiny={tiny}
           style={{
             position: "absolute",
             left: pct(((drawingSlot.x - slot.x + rect.x) / slot.w) * 100),

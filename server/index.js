@@ -132,6 +132,43 @@ export async function createApp(options = {}) {
       if (locks.get(key) === current) locks.delete(key);
     }
   }
+  let previewActive = 0;
+  const previewWaiters = [];
+  async function screenPhoto(photoHash) {
+    // Generated once, also for existing books. Concurrent requests share the
+    // file lock; at most two originals are decoded at a time on the VPS.
+    return lock(photoHash, async () => {
+      const target = path.join(photoDir, photoHash + ".screen-v1.webp");
+      try {
+        return await fs.readFile(target);
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+      if (previewActive >= 2)
+        await new Promise((resolve) => previewWaiters.push(resolve));
+      else previewActive++;
+      const temporary = target + "." + randomUUID() + ".tmp";
+      try {
+        const bytes = await sharp(path.join(photoDir, photoHash), {
+          limitInputPixels: 25_000_000,
+        })
+          .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
+          .webp({ quality: 84 })
+          .toBuffer();
+        await fs.writeFile(temporary, bytes, { mode: 0o600 });
+        await fs.rename(temporary, target);
+        return bytes;
+      } finally {
+        try {
+          await fs.rm(temporary, { force: true });
+        } finally {
+          const next = previewWaiters.shift();
+          if (next) next();
+          else previewActive--;
+        }
+      }
+    });
+  }
   function transaction(task) {
     db.exec("BEGIN IMMEDIATE");
     try {
@@ -158,14 +195,14 @@ export async function createApp(options = {}) {
     );
   }
   const aiGuestSecret = randomBytes(32);
-  const aiDailyLimit = Math.min(
-    8000,
-    Math.max(
-      1000,
-      Number(options.aiDailyNeurons || process.env.MATIANE_AI_DAILY_NEURONS) ||
-        8000,
-    ),
+  // No application neuron ceiling by default. Cloudflare enforces its own plan.
+  const configuredAiLimit = Number(
+    options.aiDailyNeurons ?? process.env.MATIANE_AI_DAILY_NEURONS,
   );
+  const aiDailyLimit =
+    Number.isFinite(configuredAiLimit) && configuredAiLimit > 0
+      ? configuredAiLimit
+      : null;
   // Jobs live in memory. After a crash their reservations become conservative usage,
   // rather than permanently masquerading as active jobs until midnight.
   transaction(() => {
@@ -236,7 +273,10 @@ export async function createApp(options = {}) {
       const perOwner = owner.startsWith("guest:") ? 200 : 400;
       if (rows[0].photos + photoCount > perOwner)
         throw new AiError("ai_daily_limit", 429);
-      if (rows[1].neurons + rows[1].reserved + neurons > aiDailyLimit)
+      if (
+        aiDailyLimit !== null &&
+        rows[1].neurons + rows[1].reserved + neurons > aiDailyLimit
+      )
         throw new AiError("ai_daily_limit", 429);
       for (const row of rows)
         db.prepare(
@@ -716,7 +756,11 @@ export async function createApp(options = {}) {
             cloudflareFreeDaily: 10000,
             used,
             reserved,
-            remaining: Math.max(0, aiDailyLimit - used - reserved),
+            remaining:
+              aiDailyLimit === null
+                ? null
+                : Math.max(0, aiDailyLimit - used - reserved),
+            freeRemaining: Math.max(0, 10000 - used),
             resetsAt: new Date(
               Date.UTC(
                 now.getUTCFullYear(),
@@ -989,13 +1033,28 @@ export async function createApp(options = {}) {
               .get(photoMatch[1], userId);
         if (!row) fail(404, "not_found");
         const thumb = url.searchParams.get("thumbnail") === "1";
-        const bytes = await fs.readFile(
-          path.join(photoDir, photoMatch[1] + (thumb ? ".webp" : "")),
-        );
+        const preview = !thumb && url.searchParams.get("preview") === "1";
+        const etag = `"${photoMatch[1]}-${thumb ? "thumb" : preview ? "screen-v1" : "original"}"`;
+        // Always revalidate private files, including ownership. A shared browser
+        // cannot reuse another account's cached photo after switching accounts.
+        const cacheHeaders = {
+          "Cache-Control": "private, no-cache",
+          ETag: etag,
+          Vary: "Cookie",
+        };
+        if (req.headers["if-none-match"] === etag) {
+          res.writeHead(304, cacheHeaders);
+          return res.end();
+        }
+        const bytes = preview
+          ? await screenPhoto(photoMatch[1])
+          : await fs.readFile(
+              path.join(photoDir, photoMatch[1] + (thumb ? ".webp" : "")),
+            );
         res.writeHead(200, {
-          "Content-Type": thumb ? "image/webp" : row.mime,
+          "Content-Type": thumb || preview ? "image/webp" : row.mime,
           "Content-Length": bytes.length,
-          "Cache-Control": "private, no-store",
+          ...cacheHeaders,
           "X-Content-Type-Options": "nosniff",
         });
         return res.end(bytes);
@@ -1228,6 +1287,9 @@ export async function createApp(options = {}) {
           return;
         await fs.rm(path.join(photoDir, row.hash), { force: true });
         await fs.rm(path.join(photoDir, row.hash + ".webp"), { force: true });
+        await fs.rm(path.join(photoDir, row.hash + ".screen-v1.webp"), {
+          force: true,
+        });
         db.prepare("DELETE FROM photos WHERE hash=?").run(row.hash);
       });
     await dailyBackup();

@@ -156,7 +156,11 @@ for (const viewport of [
   }, info) => {
     await page.setViewportSize(viewport);
     await openLongDraft(page);
+    await expect(page.locator(".project-bar")).toHaveCount(0);
+    await expect(page.locator(".design-panel").getByLabel("Book title", { exact: true })).toHaveValue("A book that stays in view");
+    await expect(page.locator(".design-panel").getByLabel("Inside pages", { exact: true })).toHaveValue("40");
     const coverBefore = await assertBookInViewport(page);
+    expect(coverBefore.height).toBeGreaterThan(viewport.width === 1440 ? 500 : 410);
     await scrollPanel(page, ".photo-panel");
     expect(await assertBookInViewport(page)).toEqual(coverBefore);
     await scrollPanel(page, ".design-panel");
@@ -164,6 +168,7 @@ for (const viewport of [
     await page.screenshot({ path: info.outputPath("fixed-cover.png") });
     await page.getByRole("button", { name: "Page 2", exact: true }).click();
     const spreadBefore = await assertBookInViewport(page);
+    expect(spreadBefore.width).toBeGreaterThan(viewport.width === 1440 ? 830 : 680);
     await page.locator(".active-leaf .editable-caption").click();
     await expect(page.getByLabel("Your words")).toBeFocused();
     await page
@@ -192,6 +197,12 @@ test("mobile keeps the book visible while the photo or text panel scrolls", asyn
 }, info) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openLongDraft(page);
+  for (const name of ["RU", "ქარ", "EN"]) {
+    await page.locator(".site-header").getByRole("button", { name, exact: true }).click();
+    const actions = await page.locator(".header-actions").boundingBox();
+    expect(actions.x + actions.width).toBeLessThanOrEqual(390);
+    await assertBookInViewport(page);
+  }
   await assertBookInViewport(page);
   await page
     .locator(".mobile-editor-tools")

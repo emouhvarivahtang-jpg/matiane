@@ -53,6 +53,8 @@ export function AdminAiUsage({ t, language }) {
     cancelled: t.aiUsageCancelled,
     interrupted: t.aiUsageInterrupted,
   };
+  const allowance = usage?.dailyLimit ?? usage?.cloudflareFreeDaily;
+  const remaining = usage?.remaining ?? usage?.freeRemaining;
   return (
     <section className="admin-ai-usage" aria-labelledby="ai-usage-heading">
       <div className="ai-usage-heading">
@@ -80,9 +82,9 @@ export function AdminAiUsage({ t, language }) {
             </div>
             <div>
               <span>{t.aiUsageRemaining}</span>
-              <strong>{number(usage.remaining)}</strong>
+              <strong>{number(remaining)}</strong>
               <small>
-                {t.aiUsageOf} {number(usage.dailyLimit)} neurons
+                {t.aiUsageOf} {number(allowance)} neurons
               </small>
             </div>
             <div>
@@ -94,8 +96,8 @@ export function AdminAiUsage({ t, language }) {
           <progress
             className="ai-usage-meter"
             aria-label={t.aiUsageTitle}
-            max={usage.dailyLimit}
-            value={Math.min(usage.dailyLimit, usage.used + usage.reserved)}
+            max={allowance}
+            value={Math.min(allowance, usage.used)}
           />
           <p className="small-note">
             {t.aiUsageReset}:{" "}
@@ -104,11 +106,13 @@ export function AdminAiUsage({ t, language }) {
             </strong>
           </p>
           <p className="small-note">
-            {t.aiUsageAllowance
-              .replace("{free}", number(usage.cloudflareFreeDaily))
-              .replace("{limit}", number(usage.dailyLimit))}
+            {t.aiUsageAllowance.replace("{free}", number(usage.cloudflareFreeDaily))}
+            {" "}
+            {usage.dailyLimit == null
+              ? t.aiUsageNoLimit
+              : t.aiUsageConfiguredLimit.replace("{limit}", number(usage.dailyLimit))}
           </p>
-          {usage.remaining === 0 && (
+          {remaining === 0 && (
             <p className="ai-usage-limit" role="status">
               {t.aiUsageLimitReached}
             </p>

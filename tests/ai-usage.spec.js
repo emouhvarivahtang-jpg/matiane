@@ -4,11 +4,12 @@ const today = {
   day: "2026-10-13",
   unit: "neurons",
   sampledAt: "2026-10-13T08:00:00.000Z",
-  dailyLimit: 8000,
+  dailyLimit: null,
   cloudflareFreeDaily: 10000,
   used: 120.5,
   reserved: 650,
-  remaining: 7229.5,
+  remaining: null,
+  freeRemaining: 9879.5,
   resetsAt: "2026-10-14T00:00:00.000Z",
   providerConfigured: true,
   cloudflareDashboardUrl:
@@ -74,7 +75,7 @@ async function cabinet(page, { admin = true } = {}) {
         json:
           usageRequests === 1
             ? today
-            : { ...today, used: 8000, reserved: 0, remaining: 0 },
+            : { ...today, used: 10000, reserved: 0, freeRemaining: 0 },
       });
     }
     return route.fulfill({ status: 404, json: { error: "not_found" } });
@@ -94,11 +95,13 @@ test("administrator sees usage, reservations, cached costs, reset time and can r
     panel.getByRole("heading", { name: "AI usage", exact: true }),
   ).toBeVisible();
   const amounts = panel.locator(".ai-usage-metrics strong");
-  await expect(amounts).toHaveText(["120.5", "7,229.5", "650"]);
+  await expect(amounts).toHaveText(["120.5", "9,879.5", "650"]);
   await expect(panel).toContainText("14/10, 04:00");
+  await expect(panel).toContainText("Matiane has no daily neuron limit");
+  await expect(panel.getByRole("progressbar")).toHaveAttribute("max", "10000");
   await expect(panel.getByRole("progressbar")).toHaveAttribute(
     "value",
-    "770.5",
+    "120.5",
   );
   await expect(panel.locator("tbody tr")).toHaveCount(3);
   await expect(panel.locator("tbody tr").nth(1)).toContainText("8");
@@ -110,9 +113,9 @@ test("administrator sees usage, reservations, cached costs, reset time and can r
   await panel
     .getByRole("button", { name: "Refresh usage", exact: true })
     .click();
-  await expect(amounts).toHaveText(["8,000", "0", "0"]);
+  await expect(amounts).toHaveText(["10,000", "0", "0"]);
   await expect(panel.getByRole("status")).toContainText(
-    "books and manual editing remain available",
+    "Books and manual editing remain available",
   );
   expect(requests()).toBe(2);
   await page.getByRole("button", { name: "RU", exact: true }).click();

@@ -52,6 +52,7 @@ import { AdminAiUsage } from "./ai-usage";
 import { FORMATS, bookFormat, pageSize } from "./format";
 import { TextControls } from "./text-controls";
 import { PageCanvas, Spread, FitSpread } from "./canvas";
+import { photoThumbnail, photoPreview } from "./photo-view";
 import { Modal, AuthDialog, NewBookDialog } from "./dialogs";
 import { download } from "./download";
 import "./styles.css";
@@ -1058,6 +1059,32 @@ function App() {
     page = book?.pages[index],
     warnings = book ? issues(book, scope) : [];
   const format = book ? bookFormat(book) : FORMATS.portrait;
+  const previewPhotos = new Map(book?.photos.map((photo) => [photo.id, photo]));
+  const adjacentPreviewSources = [...new Set(
+    [spreadList[spreadIndex + 1], spreadList[spreadIndex - 1]]
+      .flatMap((pair) => pair || [])
+      .filter((at) => at !== null)
+      .flatMap((at) => book.pages[at].photos)
+      .map((id) => previewPhotos.get(id))
+      .filter((photo) => photo?.src.startsWith("/api/photos/"))
+      .map(photoPreview),
+  )].join("\n");
+  useEffect(() => {
+    if (!adjacentPreviewSources) return;
+    const sources = adjacentPreviewSources.split("\n");
+    // Give the visible spread priority, then warm its neighbours quietly.
+    const images = [];
+    const timer = setTimeout(() => {
+      for (const src of sources) {
+        const image = new Image();
+        image.fetchPriority = "low";
+        image.decoding = "async";
+        image.src = src;
+        images.push(image);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [book?.id, adjacentPreviewSources]);
   function patchCover(patch) {
     commit({
       ...current.current,
@@ -1344,114 +1371,6 @@ function App() {
         </main>
       ) : (
         <>
-          <div className="project-bar">
-            <div className="project-heading">
-              <button
-                className="text-button back-books"
-                onClick={leaveEditor}
-                disabled={busy || uploading}
-              >
-                ← {t.myBooks}
-              </button>
-              <div className="book-title-row">
-                <input
-                  aria-label={t.untitled}
-                  value={book.title}
-                  maxLength={100}
-                  disabled={readOnly || busy || uploading}
-                  onChange={(e) => commit({ ...book, title: e.target.value })}
-                />
-                <span className="format-pill">{format.label}</span>
-              </div>
-            </div>
-            <div className="project-tools">
-              <label className="page-count-control">
-                {t.insidePages}
-                <select
-                  aria-label={t.insidePages}
-                  value={book.pageCount}
-                  onChange={(e) => changeCount(Number(e.target.value))}
-                  disabled={busy || uploading || readOnly}
-                >
-                  {PAGE_COUNTS.map((n) => (
-                    <option key={n}>{n}</option>
-                  ))}
-                </select>
-                <small>{t.coversSeparate}</small>
-              </label>
-              <IconButton
-                title={t.undo}
-                disabled={!history.length || busy || uploading}
-                onClick={undo}
-              >
-                <Undo2 size={16} />
-              </IconButton>
-              <IconButton
-                title={t.redo}
-                disabled={!future.length || busy || uploading}
-                onClick={redo}
-              >
-                <Redo2 size={16} />
-              </IconButton>
-              <button
-                className="text-button"
-                disabled={busy || uploading}
-                onClick={() => {
-                  setPreviewIndex(spreadIndex);
-                  setModal("preview");
-                }}
-              >
-                <Eye size={16} />
-                {t.preview}
-              </button>
-            </div>
-          </div>
-          <div className="save-bar">
-            {readOnly && <strong>{t.adminReview}</strong>}
-            {!readOnly && (
-              <span className={cloudError ? "error-note" : ""}>
-                {t[user ? cloudStatus || "savingCloud" : localStatus]}
-              </span>
-            )}
-            {user && !readOnly ? (
-              <>
-                <button
-                  onClick={showVersions}
-                  disabled={busy || uploading || readOnly}
-                >
-                  {t.versions}
-                </button>
-                {cloudError && (
-                  <button
-                    onClick={() => saveCloud().catch(() => {})}
-                    disabled={busy}
-                  >
-                    {t.retry}
-                  </button>
-                )}
-              </>
-            ) : (
-              !readOnly && (
-                <button
-                  onClick={() =>
-                    accountsAvailable ? setModal("auth") : transfer()
-                  }
-                  disabled={busy || uploading || readOnly}
-                >
-                  {accountsAvailable ? t.saveOnline : t.transfer}
-                </button>
-              )
-            )}
-            <button onClick={saveProject} disabled={busy || uploading}>
-              {t.saveProject}
-            </button>
-            <button
-              onClick={() => projectInput.current.click()}
-              disabled={busy || uploading || readOnly}
-            >
-              {t.openProject}
-            </button>
-          </div>
           {cloudError?.code === "version_conflict" && (
             <div className="conflict-banner">
               <p>{t.conflict}</p>
@@ -1629,14 +1548,10 @@ function App() {
                         }
                       >
                         <img
-                          src={
-                            photo.thumbnail ||
-                            (photo.src.startsWith("/api/photos/")
-                              ? photo.src + "?thumbnail=1"
-                              : photo.src)
-                          }
+                          src={photoThumbnail(photo)}
                           alt={photo.name}
                           loading="lazy"
+                          decoding="async"
                         />
                         {usage.get(photo.id) > 0 && (
                           <span className="photo-used">
@@ -1677,12 +1592,40 @@ function App() {
             </aside>
             <section className="workspace" aria-label={t.studio}>
               <div className="canvas-toolbar">
-                <span>
+                <span className="canvas-location">
                   {spreadIndex === 0
                     ? t.coverSpread
                     : `${t.spread} ${spreadIndex} / ${spreadList.length - 1}`}
+                  <small>{pageLabel(page, index, t)}</small>
                 </span>
-                <span>{pageLabel(page, index, t)}</span>
+                <div className="canvas-actions">
+                  <IconButton
+                    title={t.undo}
+                    disabled={!history.length || busy || uploading}
+                    onClick={undo}
+                  >
+                    <Undo2 size={16} />
+                  </IconButton>
+                  <IconButton
+                    title={t.redo}
+                    disabled={!future.length || busy || uploading}
+                    onClick={redo}
+                  >
+                    <Redo2 size={16} />
+                  </IconButton>
+                  <button
+                    className="text-button preview-button"
+                    aria-label={t.preview}
+                    disabled={busy || uploading}
+                    onClick={() => {
+                      setPreviewIndex(spreadIndex);
+                      setModal("preview");
+                    }}
+                  >
+                    <Eye size={16} />
+                    <span>{t.preview}</span>
+                  </button>
+                </div>
               </div>
               <div className="canvas-stage">
                 <div className="spread-navigation">
@@ -1738,9 +1681,6 @@ function App() {
                   </IconButton>
                 </div>
                 <p className="crop-instruction">{t.cropHint}</p>
-                <div className="canvas-footer">
-                  {format.label} · {t.portrait}
-                </div>
               </div>
               <div className="filmstrip-section">
                 <div className="filmstrip-heading">
@@ -1750,7 +1690,7 @@ function App() {
                   <div>
                     <button
                       className="delete-page-button"
-                      disabled={page.kind !== "page" || busy}
+                      disabled={readOnly || page.kind !== "page" || busy}
                       title={
                         page.kind !== "page" ? t.coverLocked : t.deletePage
                       }
@@ -1845,6 +1785,84 @@ function App() {
               </div>
             </section>
             <aside className="design-panel">
+              <div className="book-settings">
+                <button
+                  className="text-button back-books"
+                  onClick={leaveEditor}
+                  disabled={busy || uploading}
+                >
+                  ← {t.myBooks}
+                </button>
+                <div className="book-title-row">
+                  <input
+                    aria-label={t.untitled}
+                    value={book.title}
+                    maxLength={100}
+                    disabled={readOnly || busy || uploading}
+                    onChange={(e) => commit({ ...book, title: e.target.value })}
+                  />
+                </div>
+                <label className="page-count-control">
+                  {t.insidePages}
+                  <select
+                    aria-label={t.insidePages}
+                    value={book.pageCount}
+                    onChange={(e) => changeCount(Number(e.target.value))}
+                    disabled={busy || uploading || readOnly}
+                  >
+                    {PAGE_COUNTS.map((n) => (
+                      <option key={n}>{n}</option>
+                    ))}
+                  </select>
+                  <small>{t.coversSeparate}</small>
+                </label>
+                <div className="save-bar">
+                  {readOnly && <strong>{t.adminReview}</strong>}
+                  {!readOnly && (
+                    <span className={cloudError ? "error-note" : ""}>
+                      {t[user ? cloudStatus || "savingCloud" : localStatus]}
+                    </span>
+                  )}
+                  {user && !readOnly ? (
+                    <>
+                      <button
+                        onClick={showVersions}
+                        disabled={busy || uploading || readOnly}
+                      >
+                        {t.versions}
+                      </button>
+                      {cloudError && (
+                        <button
+                          onClick={() => saveCloud().catch(() => {})}
+                          disabled={busy}
+                        >
+                          {t.retry}
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    !readOnly && (
+                      <button
+                        onClick={() =>
+                          accountsAvailable ? setModal("auth") : transfer()
+                        }
+                        disabled={busy || uploading || readOnly}
+                      >
+                        {accountsAvailable ? t.saveOnline : t.transfer}
+                      </button>
+                    )
+                  )}
+                  <button onClick={saveProject} disabled={busy || uploading}>
+                    {t.saveProject}
+                  </button>
+                  <button
+                    onClick={() => projectInput.current.click()}
+                    disabled={busy || uploading || readOnly}
+                  >
+                    {t.openProject}
+                  </button>
+                </div>
+              </div>
               <div className="panel-heading">
                 <h2>{t.styleTitle}</h2>
                 <p>{pageLabel(page, index, t)}</p>

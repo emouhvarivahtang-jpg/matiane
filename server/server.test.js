@@ -337,7 +337,9 @@ test("AI usage is administrator-only and reports spent, reserved, cached and dai
   const empty = await f.request("/admin/ai-usage", { user: admin });
   assert.equal(empty.status, 200);
   assert.equal(empty.data.used, 0);
-  assert.equal(empty.data.remaining, 8000);
+  assert.equal(empty.data.dailyLimit, null);
+  assert.equal(empty.data.remaining, null);
+  assert.equal(empty.data.freeRemaining, 10000);
   assert.equal(empty.data.cloudflareFreeDaily, 10000);
   assert.ok(empty.data.resetsAt.endsWith("T00:00:00.000Z"));
   assert.equal(empty.headers.get("cache-control"), "no-store");
@@ -353,7 +355,8 @@ test("AI usage is administrator-only and reports spent, reserved, cached and dai
   const pending = (await f.request("/admin/ai-usage", { user: admin })).data;
   assert.equal(pending.used, 0);
   assert.equal(pending.reserved, 525);
-  assert.equal(pending.remaining, 7475);
+  assert.equal(pending.remaining, null);
+  assert.equal(pending.freeRemaining, 10000);
   assert.equal(pending.recent[0].status, "processing");
   assert.equal(pending.recent[0].photoCount, 1);
   assert.equal(pending.recent[0].cachedPhotos, 0);
@@ -362,7 +365,8 @@ test("AI usage is administrator-only and reports spent, reserved, cached and dai
   const done = (await f.request("/admin/ai-usage", { user: admin })).data;
   assert.equal(done.used, 13);
   assert.equal(done.reserved, 0);
-  assert.equal(done.remaining, 7987);
+  assert.equal(done.remaining, null);
+  assert.equal(done.freeRemaining, 9987);
   assert.equal(done.recent[0].neurons, 13);
   assert.equal(done.recent[0].estimated, false);
   assert.equal(done.recent[0].status, "completed");
@@ -385,7 +389,34 @@ test("AI usage is administrator-only and reports spent, reserved, cached and dai
   db.close();
   const nextDay = (await f.request("/admin/ai-usage", { user: admin })).data;
   assert.equal(nextDay.used, 0);
-  assert.equal(nextDay.remaining, 8000);
+  assert.equal(nextDay.remaining, null);
+  assert.equal(nextDay.freeRemaining, 10000);
+});
+test("default AI allowance does not block assembly at 8000 or reserve against the Cloudflare free ceiling", async (t) => {
+  const f = await setup(t, {
+    adminEmails: "unlimited@example.invalid",
+    aiProvider: async ({ kind, payload }) => aiResult(kind, payload),
+  });
+  const admin = await f.register("unlimited@example.invalid");
+  const { createHash } = await import("node:crypto");
+  const db = new DatabaseSync(path.join(f.dir, "matiane.sqlite"));
+  db.prepare("INSERT INTO ai_budgets(key,day,neurons) VALUES(?,?,9900)").run(
+    createHash("sha256").update("ai-global").digest("hex"),
+    new Date().toISOString().slice(0, 10),
+  );
+  db.close();
+  const started = await f.request("/ai/assemble", {
+    method: "POST",
+    user: admin,
+    body: { language: "en", pageCount: 40, photos: [await aiPhoto()] },
+  });
+  assert.equal(started.status, 202); // reservation exceeds 10000; provider decides
+  assert.equal((await waitAi(f, started.data, admin)).data.status, "completed");
+  const usage = (await f.request("/admin/ai-usage", { user: admin })).data;
+  assert.equal(usage.dailyLimit, null);
+  assert.equal(usage.used, 9913);
+  assert.equal(usage.freeRemaining, 87);
+  assert.equal(usage.reserved, 0);
 });
 test("usage converts interrupted reservations into estimates and releases active-job capacity on restart", async (t) => {
   const f = await setup(t, { adminEmails: "metrics-admin@example.invalid" });
@@ -405,7 +436,8 @@ test("usage converts interrupted reservations into estimates and releases active
   const usage = (await f.request("/admin/ai-usage", { user: admin })).data;
   assert.equal(usage.used, 538);
   assert.equal(usage.reserved, 0);
-  assert.equal(usage.remaining, 7462);
+  assert.equal(usage.remaining, null);
+  assert.equal(usage.freeRemaining, 9462);
   assert.equal(usage.recent[0].status, "interrupted");
   assert.equal(usage.recent[0].neurons, 525);
   assert.equal(usage.recent[0].reportedNeurons, 0);
@@ -1035,6 +1067,46 @@ test("account authentication, CSRF, recovery and persistent sessions", async (t)
     200,
   );
   assert.equal((await f.request("/books", { user: logged })).status, 401);
+});
+test("screen previews are smaller, persist across restart, revalidate ownership and leave print originals intact", async (t) => {
+  const f = await setup(t),
+    owner = await f.register("preview-owner@example.invalid"),
+    other = await f.register("preview-other@example.invalid");
+  const original = await sharp({
+    create: { width: 3200, height: 2400, channels: 3, background: "#7a937f" },
+  }).jpeg({ quality: 98 }).toBuffer();
+  const uploaded = await f.request("/photos", { method: "POST", body: original, user: owner });
+  assert.equal(uploaded.status, 201);
+  const route = uploaded.data.src.slice(4);
+  const [first, simultaneous] = await Promise.all([
+    f.request(route + "?preview=1", { user: owner }),
+    f.request(route + "?preview=1", { user: owner }),
+  ]);
+  assert.equal(first.status, 200);
+  assert.deepEqual(first.data, simultaneous.data);
+  const metadata = await sharp(first.data).metadata();
+  assert.equal(metadata.format, "webp");
+  assert.equal(metadata.width, 1600);
+  assert.equal(metadata.height, 1200);
+  assert.ok(first.data.length < original.length / 2);
+  assert.equal(first.headers.get("cache-control"), "private, no-cache");
+  const headers = { "If-None-Match": first.headers.get("etag") };
+  assert.equal((await f.request(route + "?preview=1", { user: owner, headers })).status, 304);
+  assert.equal((await f.request(route + "?preview=1", { user: other, headers })).status, 404);
+  assert.equal((await f.request(route + "?preview=1", { headers })).status, 401);
+  const onDisk = path.join(f.dir, "photos", route.split("/").pop() + ".screen-v1.webp");
+  const before = (await fs.stat(onDisk)).mtimeMs;
+  await f.restart();
+  const cached = await f.request(route + "?preview=1", { user: owner });
+  assert.deepEqual(cached.data, first.data);
+  assert.equal((await fs.stat(onDisk)).mtimeMs, before);
+  const print = await f.request(route, { user: owner });
+  assert.deepEqual(print.data, original);
+  assert.notEqual(print.headers.get("etag"), first.headers.get("etag"));
+  const thumb = await f.request(route + "?thumbnail=1", { user: owner });
+  assert.equal((await f.request(route + "?thumbnail=1", {
+    user: owner, headers: { "If-None-Match": thumb.headers.get("etag") },
+  })).status, 304);
 });
 test("private images, immutable versions, concurrent edits and complete deletion", async (t) => {
   const f = await setup(t),

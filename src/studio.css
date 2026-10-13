@@ -1383,32 +1383,72 @@ body:has(.editor-shell) {
   overflow: hidden;
 }
 .editor-shell > .site-header,
-.editor-shell > .project-bar,
-.editor-shell > .save-bar,
 .editor-shell > .conflict-banner,
 .editor-shell > .mobile-editor-tools {
   flex: 0 0 auto;
 }
 .editor-shell > .site-header {
-  height: 64px;
-  min-height: 64px;
-  padding: 0 24px;
+  height: 46px;
+  min-height: 46px;
+  padding: 0 16px;
 }
-.editor-shell > .project-bar {
-  min-height: 72px;
-  padding: 10px 24px;
-}
-.editor-shell .book-title-row {
-  margin-top: 5px;
-}
-.editor-shell .book-title-row input {
+.editor-shell .brand {
   font-size: 22px;
 }
-.editor-shell > .save-bar {
-  min-height: 34px;
-  padding: 7px 24px;
-  gap: 14px;
+.editor-shell .brand-mark {
+  font-size: 28px;
+  width: 25px;
+}
+.editor-shell .brand small {
+  display: none;
+}
+.editor-shell .header-actions > button {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+.editor-shell .book-settings {
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.editor-shell .book-title-row {
+  margin: 10px 0;
+  display: block;
+}
+.editor-shell .book-title-row input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 17px;
+  padding: 7px 0;
+}
+.editor-shell .book-settings .page-count-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  max-width: none;
+}
+.editor-shell .book-settings .page-count-control select {
+  width: 60px;
+  padding: 5px;
+  font-size: 13px;
+}
+.editor-shell .book-settings .page-count-control small {
+  display: block;
+}
+.editor-shell .book-settings .save-bar {
+  min-height: 0;
+  padding: 12px 0 0;
+  gap: 8px 12px;
   font-size: 10px;
+  background: transparent;
+  border: 0;
+}
+.editor-shell .book-settings .save-bar > span,
+.editor-shell .book-settings .save-bar > strong {
+  flex: 1 1 100%;
+  width: 100%;
 }
 .editor-shell > .conflict-banner {
   padding: 10px 16px;
@@ -1426,7 +1466,7 @@ body:has(.editor-shell) {
   display: none;
 }
 .editor-shell .toast {
-  top: 76px;
+  top: 54px;
   bottom: auto;
   max-width: min(560px, calc(100vw - 32px));
   pointer-events: none;
@@ -1436,7 +1476,7 @@ body:has(.editor-shell) {
 }
 .editor-shell .studio-grid {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 280px;
+  grid-template-columns: 240px minmax(0, 1fr) 240px;
   grid-template-rows: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
@@ -1450,7 +1490,7 @@ body:has(.editor-shell) {
   grid-row: 1;
   min-width: 0;
   min-height: 0;
-  padding: 20px 18px;
+  padding: 18px 14px;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -1489,14 +1529,38 @@ body:has(.editor-shell) {
   overflow: hidden;
 }
 .editor-shell .canvas-toolbar {
-  height: 42px;
+  height: 38px;
   min-height: 0;
   padding: 0 18px;
   font-size: 10px;
 }
+.editor-shell .canvas-location {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.editor-shell .canvas-location small {
+  margin-left: 10px;
+  color: #87917b;
+}
+.editor-shell .canvas-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+}
+.editor-shell .canvas-actions .icon-button {
+  width: 28px;
+  height: 28px;
+}
+.editor-shell .canvas-actions .text-button {
+  font-size: 10px;
+  padding: 4px 6px;
+}
 .editor-shell .canvas-stage {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
   padding: 4px 12px 10px;
@@ -1659,16 +1723,16 @@ body:has(.editor-shell) {
 }
 @media (min-width: 1700px) {
   .editor-shell .studio-grid {
-    grid-template-columns: 300px minmax(0, 1fr) 300px;
+    grid-template-columns: 260px minmax(0, 1fr) 260px;
   }
   .editor-shell .photo-panel,
   .editor-shell .design-panel {
-    padding: 24px;
+    padding: 20px 16px;
   }
 }
 @media (min-width: 801px) and (max-width: 1150px) {
   .editor-shell .studio-grid {
-    grid-template-columns: 240px minmax(0, 1fr) 240px;
+    grid-template-columns: 220px minmax(0, 1fr) 220px;
   }
   .editor-shell .photo-panel,
   .editor-shell .design-panel {
@@ -1683,14 +1747,15 @@ body:has(.editor-shell) {
 }
 @media (max-width: 800px) {
   .editor-shell .toast {
-    top: 126px;
+    top: 92px;
     padding: 10px 14px;
     font-size: 10px;
   }
   .editor-shell > .site-header {
-    min-height: 56px;
-    height: auto;
-    padding: 7px 12px;
+    min-height: 44px;
+    height: 44px;
+    padding: 3px 10px;
+    flex-wrap: nowrap;
     gap: 8px;
     row-gap: 5px;
   }
@@ -1702,64 +1767,6 @@ body:has(.editor-shell) {
   }
   .editor-shell .account-email {
     max-width: 70px;
-  }
-  .editor-shell > .project-bar {
-    min-height: 68px;
-    padding: 7px 12px;
-    align-items: center;
-    gap: 6px;
-  }
-  .editor-shell .project-heading {
-    min-width: 0;
-    flex: 1;
-  }
-  .editor-shell .book-title-row input {
-    width: 100%;
-    max-width: 240px;
-    min-width: 0;
-    font-size: 17px;
-  }
-  .editor-shell .format-pill {
-    display: none;
-  }
-  .editor-shell .project-tools {
-    max-width: 150px;
-    flex-wrap: nowrap;
-    gap: 2px;
-  }
-  .editor-shell .page-count-control {
-    font-size: 0;
-    max-width: 42px;
-    display: block;
-  }
-  .editor-shell .page-count-control select {
-    width: 42px;
-    padding: 6px 3px;
-    font-size: 12px;
-  }
-  .editor-shell .page-count-control small {
-    display: none;
-  }
-  .editor-shell .project-tools .text-button {
-    width: 28px;
-    height: 28px;
-    padding: 5px;
-    font-size: 0 !important;
-    gap: 0;
-  }
-  .editor-shell .project-tools > .icon-button {
-    width: 24px;
-  }
-  .editor-shell > .save-bar {
-    padding: 6px 12px;
-    min-height: 28px;
-    font-size: 8px;
-    gap: 6px 10px;
-  }
-  .editor-shell .save-bar > span {
-    width: auto;
-    min-width: 0;
-    flex: 1 1 100px;
   }
   .editor-shell > .mobile-editor-tools {
     display: flex;
@@ -1815,6 +1822,10 @@ body:has(.editor-shell) {
     height: 34px;
     padding: 0 10px;
     font-size: 9px;
+  }
+  .editor-shell .canvas-location small,
+  .editor-shell .preview-button span {
+    display: none;
   }
   .editor-shell .canvas-stage {
     padding: 2px 3px 6px;
@@ -1879,13 +1890,8 @@ body:has(.editor-shell) {
 }
 @media (max-height: 680px) and (min-width: 801px) {
   .editor-shell > .site-header {
-    height: 54px;
-    min-height: 54px;
-  }
-  .editor-shell > .project-bar {
-    min-height: 60px;
-    padding-top: 6px;
-    padding-bottom: 6px;
+    height: 42px;
+    min-height: 42px;
   }
   .editor-shell .canvas-footer {
     display: none;

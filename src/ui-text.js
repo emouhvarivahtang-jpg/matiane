@@ -14,15 +14,17 @@ const extra = {
     aiUsageError:
       "Could not refresh AI usage. Try again; the last figures may be out of date.",
     aiUsageUsed: "Counted today",
-    aiUsageRemaining: "Available for Matiane",
+    aiUsageRemaining: "Free allowance left · estimate",
     aiUsageReserved: "Reserved by active jobs",
     aiUsageOf: "of",
     aiUsageReset: "Daily reset",
     aiUsageTbilisi: "Tbilisi",
     aiUsageAllowance:
-      "Cloudflare gives {free} free neurons each day. Matiane uses up to {limit}, keeping a buffer. A new assembly needs a reserve before it starts.",
+      "Cloudflare gives {free} free neurons per day and enforces the limits of your plan. Active job estimates are shown separately.",
+    aiUsageNoLimit: "Matiane has no daily neuron limit.",
+    aiUsageConfiguredLimit: "Configured Matiane ceiling: {limit} neurons.",
     aiUsageLimitReached:
-      "The AI allowance is used up. Assembly resumes after the daily reset; books and manual editing remain available.",
+      "The estimated free allowance is used up. Cloudflare may stop AI requests until the daily reset, depending on your plan. Books and manual editing remain available.",
     aiUsageRecent: "Recent assemblies",
     aiUsageTime: "Time · Tbilisi",
     aiUsagePhotos: "Photos",
@@ -196,15 +198,17 @@ const extra = {
     aiUsageError:
       "Не удалось обновить расход AI. Попробуйте ещё раз; последние цифры могли устареть.",
     aiUsageUsed: "Учтено сегодня",
-    aiUsageRemaining: "Доступно для Matiane",
+    aiUsageRemaining: "Осталось бесплатно · оценка",
     aiUsageReserved: "Занято текущими сборками",
     aiUsageOf: "из",
     aiUsageReset: "Обновление лимита",
     aiUsageTbilisi: "Тбилиси",
     aiUsageAllowance:
-      "Cloudflare даёт {free} бесплатных neurons в день. Matiane использует до {limit}, оставляя запас. Для запуска новой сборки заранее нужен резерв.",
+      "Cloudflare даёт {free} бесплатных neurons в сутки и применяет ограничения вашего тарифа. Оценки текущих сборок показаны отдельно.",
+    aiUsageNoLimit: "У Matiane нет дневного ограничения neurons.",
+    aiUsageConfiguredLimit: "Настроенный предел Matiane: {limit} neurons.",
     aiUsageLimitReached:
-      "Лимит AI исчерпан. Сборка снова заработает после обновления лимита; книги и ручное редактирование остаются доступны.",
+      "По оценке бесплатный объём исчерпан. В зависимости от тарифа Cloudflare может остановить AI до обновления лимита. Книги и ручное редактирование остаются доступны.",
     aiUsageRecent: "Последние сборки",
     aiUsageTime: "Время · Тбилиси",
     aiUsagePhotos: "Фото",
@@ -467,15 +471,17 @@ const extra = {
     aiUsageError:
       "AI-ის მოხმარება ვერ განახლდა. სცადეთ ხელახლა; ბოლო მონაცემები შესაძლოა მოძველებული იყოს.",
     aiUsageUsed: "დღეს აღრიცხული",
-    aiUsageRemaining: "Matiane-სთვის დარჩენილი",
+    aiUsageRemaining: "უფასო ნაშთი · შეფასება",
     aiUsageReserved: "მიმდინარე აწყობის რეზერვი",
     aiUsageOf: "სულ",
     aiUsageReset: "ლიმიტის განახლება",
     aiUsageTbilisi: "თბილისი",
     aiUsageAllowance:
-      "Cloudflare ყოველდღე {free} უფასო neurons-ს იძლევა. Matiane იყენებს მაქსიმუმ {limit}-ს და ტოვებს მარაგს. ახალი აწყობის დაწყებამდე საჭიროა რეზერვი.",
+      "Cloudflare დღეში {free} უფასო neurons-ს იძლევა და თქვენი ტარიფის შეზღუდვებს იყენებს. მიმდინარე აწყობების შეფასებები ცალკეა ნაჩვენები.",
+    aiUsageNoLimit: "Matiane-ს neurons-ის დღიური ლიმიტი არ აქვს.",
+    aiUsageConfiguredLimit: "Matiane-ს დაყენებული ზღვარი: {limit} neurons.",
     aiUsageLimitReached:
-      "AI-ის ლიმიტი ამოიწურა. აწყობა ლიმიტის განახლების შემდეგ აღდგება; წიგნები და ხელით რედაქტირება ხელმისაწვდომია.",
+      "შეფასებით უფასო რესურსი ამოიწურა. ტარიფის მიხედვით Cloudflare-მ შესაძლოა AI დღიურ განახლებამდე შეაჩეროს. წიგნები და ხელით რედაქტირება ხელმისაწვდომია.",
     aiUsageRecent: "ბოლო აწყობები",
     aiUsageTime: "დრო · თბილისი",
     aiUsagePhotos: "ფოტოები",
