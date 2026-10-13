@@ -7,15 +7,20 @@ export class ApiError extends Error {
     this.bookInfo = bookInfo;
   }
 }
-export async function api(path, { method = "GET", body } = {}) {
+export async function api(
+  path,
+  { method = "GET", body, headers: extraHeaders = {}, signal } = {},
+) {
   const headers = { "X-Matiane-Client": "studio" };
   if (method !== "GET" && csrf) headers["X-CSRF-Token"] = csrf;
   if (body && !(body instanceof Blob))
     headers["Content-Type"] = "application/json";
+  Object.assign(headers, extraHeaders);
   const response = await fetch("/api" + path, {
     method,
     headers,
     credentials: "same-origin",
+    signal,
     body:
       body instanceof Blob
         ? body

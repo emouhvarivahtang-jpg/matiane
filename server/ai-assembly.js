@@ -167,7 +167,13 @@ export function cloudflareProvider({ accountId, token, fetchImpl = fetch }) {
           continue;
         if (!response.ok)
           throw new AiError(
-            response.status === 429 ? "ai_provider_limit" : "ai_unavailable",
+            [401, 403].includes(response.status)
+              ? "ai_provider_auth"
+              : [400, 404, 422].includes(response.status)
+                ? "ai_provider_request"
+                : response.status === 429
+                  ? "ai_provider_limit"
+                  : "ai_unavailable",
             response.status === 429 ? 429 : 502,
           );
         const answer = await response.json();
@@ -181,7 +187,9 @@ export function cloudflareProvider({ accountId, token, fetchImpl = fetch }) {
       } catch (error) {
         if (signal?.aborted) throw error;
         if (attempt === 0 && !(error instanceof AiError)) continue;
-        throw error instanceof AiError ? error : new AiError("ai_unavailable");
+        throw error instanceof AiError
+          ? error
+          : new AiError("ai_provider_connection");
       }
     }
   };
@@ -389,7 +397,10 @@ export function createAiJobs({
               job.unknownCost = true;
             return response;
           } catch (error) {
-            if (!(error instanceof AiError) || error.code === "ai_unavailable")
+            if (
+              !(error instanceof AiError) ||
+              ["ai_unavailable", "ai_provider_connection"].includes(error.code)
+            )
               job.unknownCost = true;
             throw error;
           } finally {

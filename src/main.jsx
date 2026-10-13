@@ -33,6 +33,7 @@ import {
   reorderPage,
   deletePage,
   forkBook,
+  uid,
   validateBook,
   portableBook,
   issues,
@@ -45,9 +46,11 @@ import {
 import { messages, errorMessage } from "./ui-text";
 import { api, CloudWriter } from "./api";
 import { importGuestBooks } from "./local-import";
+import { buildWithAi } from "./ai-client";
+import { assembleBook } from "./ai-assembly";
 import { FORMATS, bookFormat, pageSize } from "./format";
 import { TextControls } from "./text-controls";
-import { PageCanvas, Spread } from "./canvas";
+import { PageCanvas, Spread, FitSpread } from "./canvas";
 import { Modal, AuthDialog, NewBookDialog } from "./dialogs";
 import { download } from "./download";
 import "./styles.css";
@@ -111,6 +114,14 @@ function App() {
       failed: false,
     }),
     [uploading, setUploading] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState(null),
+    [ai, setAi] = useState({
+      running: false,
+      phase: "preparing",
+      completed: 0,
+      total: 0,
+      error: "",
+    });
   const [history, setHistory] = useState([]),
     [future, setFuture] = useState([]),
     [localStatus, setLocalStatus] = useState("saved"),
@@ -134,6 +145,7 @@ function App() {
     currentUser = useRef(user),
     localQueue = useRef(Promise.resolve()),
     importing = useRef(false),
+    aiController = useRef(null),
     activeToken = useRef(0);
   current.current = book;
   currentUser.current = user;
@@ -186,7 +198,7 @@ function App() {
     return () => clearInterval(timer);
   }, [ready, user, book]);
   async function syncLocalBooks(account = currentUser.current) {
-    if (!account || importing.current) return;
+    if (!account || importing.current || aiController.current) return;
     importing.current = true;
     setBusy(true);
     setLocalImport((s) => ({ ...s, running: true, failed: false }));
@@ -236,6 +248,9 @@ function App() {
     return () => window.removeEventListener("online", online);
   }, [busy]);
   useEffect(() => {
+    return () => aiController.current?.abort();
+  }, []);
+  useEffect(() => {
     document.documentElement.lang = language;
     localStorage.setItem("matiane-language", language);
   }, [language]);
@@ -251,7 +266,7 @@ function App() {
     return localQueue.current;
   }
   useEffect(() => {
-    if (!book || readOnly || localImport.running) return;
+    if (!book || readOnly || localImport.running || ai.running) return;
     setLocalStatus("saving");
     const snapshot = book,
       w = writer.current,
@@ -267,7 +282,7 @@ function App() {
         });
     }, 350);
     return () => clearTimeout(timer);
-  }, [book, owner, readOnly, localImport.running]);
+  }, [book, owner, readOnly, localImport.running, ai.running]);
   async function saveCloud(snapshot = current.current, options = {}) {
     const w = writer.current,
       token = activeToken.current,
@@ -294,12 +309,19 @@ function App() {
     }
   }
   useEffect(() => {
-    if (!book || !user || !writer.current || localImport.running || readOnly)
+    if (
+      !book ||
+      !user ||
+      !writer.current ||
+      localImport.running ||
+      readOnly ||
+      ai.running
+    )
       return;
     setCloudStatus("savingCloud");
     const timer = setTimeout(() => saveCloud(book).catch(() => {}), 2300);
     return () => clearTimeout(timer);
-  }, [book, user, localImport.running, readOnly]);
+  }, [book, user, localImport.running, readOnly, ai.running]);
   useEffect(() => {
     const leave = (e) => {
       if (
@@ -375,6 +397,7 @@ function App() {
     return () => window.removeEventListener("message", receive);
   }, [ready]);
   function openBook(next, info = null, review = false) {
+    if (aiController.current) return;
     next = validateBook(next, { allowCloud: true });
     activeToken.current++;
     writer.current =
@@ -387,6 +410,14 @@ function App() {
     setFrame(0);
     setHistory([]);
     setFuture([]);
+    setMobilePanel(null);
+    setAi({
+      running: false,
+      phase: "preparing",
+      completed: 0,
+      total: 0,
+      error: "",
+    });
     setCloudError(null);
     setCloudStatus(
       info ? "cloudSaved" : currentUser.current ? "savingCloud" : "",
@@ -609,7 +640,7 @@ function App() {
     }
   }
   async function upload(files) {
-    if (uploading || readOnly || !files?.length) return;
+    if (busy || uploading || readOnly || !files?.length) return;
     setUploading(true);
     const token = activeToken.current,
       available = 200 - book.photos.length,
@@ -668,15 +699,110 @@ function App() {
     commit({ ...now, pages });
     setToast(t.fillDone);
   }
+  async function autoAssemble() {
+    if (
+      busy ||
+      aiController.current ||
+      uploading ||
+      readOnly ||
+      !current.current?.photos.length
+    )
+      return;
+    if (writer.current?.conflict) {
+      setToast(t.conflict);
+      return;
+    }
+    if (!accountsAvailable) {
+      await transfer();
+      return;
+    }
+    const snapshot = current.current,
+      token = activeToken.current,
+      controller = new AbortController();
+    aiController.current = controller;
+    setBusy(true);
+    setAi({
+      running: true,
+      phase: "preparing",
+      completed: 0,
+      total: snapshot.photos.length,
+      error: "",
+    });
+    try {
+      await localSave(
+        snapshot,
+        owner,
+        writer.current ? { ...writer.current.info, pending: true } : null,
+      );
+      setLocalStatus("saved");
+      const result = await buildWithAi(snapshot, {
+        signal: controller.signal,
+        signedIn: !!user,
+        onProgress: (value) =>
+          setAi((state) => ({ ...state, ...value, running: true })),
+      });
+      if (controller.signal.aborted || token !== activeToken.current)
+        throw new DOMException("Cancelled", "AbortError");
+      const next = assembleBook(snapshot, result.analysis, result.plan);
+      setAi((state) => ({ ...state, phase: "saving" }));
+      // A separate local book shares photo records, so a backup does not duplicate image data.
+      const backup = validateBook(
+        {
+          ...snapshot,
+          id: uid(),
+          title: (snapshot.title + " · " + t.aiBackup).slice(0, 100),
+        },
+        { allowCloud: true },
+      );
+      await localSave(backup, owner, null);
+      if (user && writer.current)
+        await saveCloud(snapshot, { checkpoint: true, label: t.aiBackup });
+      if (controller.signal.aborted || token !== activeToken.current)
+        throw new DOMException("Cancelled", "AbortError");
+      setHistory((past) => [...past.slice(-29), snapshot]);
+      setFuture([]);
+      setBook(next);
+      setIndex(
+        Math.max(
+          1,
+          next.pages.findIndex(
+            (page) => page.kind === "page" && page.photos.some(Boolean),
+          ),
+        ),
+      );
+      setFrame(0);
+      setSpineSelected(false);
+      setMobilePanel(null);
+      setAi((state) => ({ ...state, running: false, error: "" }));
+      setToast(t.aiDone);
+    } catch (error) {
+      if (error.name === "AbortError") {
+        setAi((state) => ({ ...state, running: false, error: "" }));
+        setToast(t.aiCancelled);
+      } else {
+        const explanation = errorMessage(error, t);
+        setAi((state) => ({
+          ...state,
+          running: false,
+          error: explanation === t.error ? t.aiFailed : explanation,
+        }));
+      }
+    } finally {
+      aiController.current = null;
+      setBusy(false);
+    }
+  }
   async function changeCount(count) {
-    if (readOnly || count === book.pageCount) return;
+    if (busy || uploading || readOnly || count === book.pageCount) return;
+    const snapshot = current.current,
+      token = activeToken.current;
     setBusy(true);
     try {
-      if (count < book.pageCount) {
+      if (count < snapshot.pageCount) {
         if (!window.confirm(t.shrinkConfirm)) return;
         const backup = forkBook(
-          book,
-          (book.title + " · " + t.backup).slice(0, 100),
+          snapshot,
+          (snapshot.title + " · " + t.backup).slice(0, 100),
         );
         if (user) {
           const w = new CloudWriter();
@@ -687,8 +813,13 @@ function App() {
           await localSave(backup, owner, { ...info, pending: false });
         } else await localSave(backup, owner, null);
       }
-      commit(resizeBook(book, count));
+      if (token !== activeToken.current) return;
+      setHistory((past) => [...past.slice(-29), snapshot]);
+      setFuture([]);
+      setBook(resizeBook(snapshot, count));
       setIndex((i) => Math.min(i, count + 1));
+      setFrame(0);
+      setSpineSelected(false);
     } catch (e) {
       setToast(errorMessage(e, t));
     } finally {
@@ -920,6 +1051,8 @@ function App() {
   function focusText(at, spine = false) {
     setIndex(at);
     setSpineSelected(spine);
+    if (window.matchMedia("(max-width: 800px)").matches)
+      setMobilePanel("design");
     requestAnimationFrame(() => {
       captionInput.current?.focus();
       captionInput.current?.scrollIntoView({
@@ -972,6 +1105,7 @@ function App() {
               key={lang}
               aria-pressed={language === lang}
               className={language === lang ? "active" : ""}
+              disabled={busy || uploading}
               onClick={() => {
                 setLanguage(lang);
                 if (book) setBook({ ...book, language: lang });
@@ -984,6 +1118,7 @@ function App() {
         {user ? (
           <button
             className="text-button account-email"
+            disabled={busy}
             onClick={() => setModal("account")}
           >
             {user.email}
@@ -991,6 +1126,7 @@ function App() {
         ) : (
           <button
             className="secondary"
+            disabled={busy || uploading}
             onClick={() =>
               accountsAvailable ? setModal("auth") : transfer(true)
             }
@@ -1016,7 +1152,7 @@ function App() {
     </header>
   );
   return (
-    <>
+    <div className={book ? "app-shell editor-shell" : "app-shell"}>
       {header}
       {user && (localImport.running || localImport.failed) && (
         <div
@@ -1203,7 +1339,7 @@ function App() {
                   aria-label={t.untitled}
                   value={book.title}
                   maxLength={100}
-                  disabled={readOnly}
+                  disabled={readOnly || busy || uploading}
                   onChange={(e) => commit({ ...book, title: e.target.value })}
                 />
                 <span className="format-pill">{format.label}</span>
@@ -1240,6 +1376,7 @@ function App() {
               </IconButton>
               <button
                 className="text-button"
+                disabled={busy || uploading}
                 onClick={() => {
                   setPreviewIndex(spreadIndex);
                   setModal("preview");
@@ -1301,19 +1438,46 @@ function App() {
               <p>{t.conflict}</p>
               <button
                 className="secondary"
+                disabled={busy || uploading}
                 onClick={() => openCloud({ id: writer.current.info.id }, true)}
               >
                 {t.openLatest}
               </button>
               <button
                 className="primary"
+                disabled={busy || uploading}
                 onClick={() => openBook(forkBook(book))}
               >
                 {t.saveCopy}
               </button>
             </div>
           )}
-          <main className="studio-grid">
+          <nav className="mobile-editor-tools" aria-label={t.studio}>
+            <button
+              className={mobilePanel === "photos" ? "selected" : ""}
+              aria-pressed={mobilePanel === "photos"}
+              onClick={() => setMobilePanel("photos")}
+            >
+              {t.photos}
+            </button>
+            <button
+              className={!mobilePanel ? "selected" : ""}
+              aria-pressed={!mobilePanel}
+              onClick={() => setMobilePanel(null)}
+            >
+              {t.studio}
+            </button>
+            <button
+              className={mobilePanel === "design" ? "selected" : ""}
+              aria-pressed={mobilePanel === "design"}
+              onClick={() => setMobilePanel("design")}
+            >
+              {t.styleTitle}
+            </button>
+          </nav>
+          <main
+            className={`studio-grid ${mobilePanel ? "panel-open-" + mobilePanel : ""}`}
+          >
             <aside className="photo-panel">
               <div className="panel-heading">
                 <h2>{t.photos}</h2>
@@ -1335,6 +1499,67 @@ function App() {
                 <strong>{uploading ? t.uploadBusy : t.upload}</strong>
                 <small>{t.uploadHint}</small>
               </button>
+              <button
+                className="primary ai-assembly-button"
+                disabled={busy || uploading || readOnly || !book.photos.length}
+                onClick={autoAssemble}
+              >
+                <span aria-hidden="true">✦</span> {t.aiBuild}
+              </button>
+              <p className="small-note ai-assembly-hint">{t.aiHint}</p>
+              {ai.running && (
+                <div
+                  className="ai-assembly-progress"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <p>
+                    <LoaderCircle className="spin" size={15} />{" "}
+                    {
+                      t[
+                        {
+                          preparing: "aiPreparing",
+                          analysing: "aiAnalysing",
+                          planning: "aiPlanning",
+                          saving: "aiSaving",
+                          cancelling: "aiCancelling",
+                          completed: "aiPlanning",
+                        }[ai.phase] || "aiPlanning"
+                      ]
+                    }
+                  </p>
+                  <progress
+                    aria-label={t.aiBuild}
+                    max={Math.max(1, ai.total)}
+                    value={ai.completed}
+                  />
+                  <small>
+                    {Math.min(ai.completed, ai.total)} / {ai.total}
+                  </small>
+                  <button
+                    className="text-button"
+                    disabled={ai.phase === "cancelling"}
+                    onClick={() => {
+                      aiController.current?.abort();
+                      setAi((state) => ({ ...state, phase: "cancelling" }));
+                    }}
+                  >
+                    {t.cancel}
+                  </button>
+                </div>
+              )}
+              {ai.error && !ai.running && (
+                <div className="ai-assembly-error" role="alert">
+                  <p>{ai.error}</p>
+                  <button
+                    className="secondary"
+                    onClick={autoAssemble}
+                    disabled={busy || uploading || readOnly}
+                  >
+                    {t.aiRetry}
+                  </button>
+                </div>
+              )}
               <div className="library-heading">
                 <h3>{t.library}</h3>
                 <span>{book.photos.length}</span>
@@ -1359,8 +1584,9 @@ function App() {
                       <button
                         aria-label={`${t.photos}: ${photo.name}`}
                         title={photo.name}
+                        disabled={busy || readOnly}
                         onClick={() => assign(photo.id)}
-                        draggable
+                        draggable={!busy && !readOnly}
                         onDragStart={(e) =>
                           e.dataTransfer.setData("text/matiane-photo", photo.id)
                         }
@@ -1385,6 +1611,7 @@ function App() {
                       <button
                         className="remove-photo"
                         aria-label={`${t.removePhoto}: ${photo.name}`}
+                        disabled={busy || readOnly}
                         onClick={() => removePhoto(photo.id)}
                       >
                         ×
@@ -1433,26 +1660,34 @@ function App() {
                   >
                     <ChevronLeft />
                   </IconButton>
-                  <Spread
-                    book={book}
-                    spreadIndex={spreadIndex}
-                    t={t}
-                    activeIndex={index}
-                    activeFrame={frame}
-                    onSelect={choosePage}
-                    onCrop={
-                      readOnly
-                        ? undefined
-                        : (at, slot, crop) => {
-                            const crops = [...current.current.pages[at].crops];
-                            crops[slot] = crop;
-                            patchPage(at, { crops });
-                          }
-                    }
-                    onText={readOnly ? undefined : (at) => focusText(at)}
-                    onSpine={readOnly ? undefined : () => focusText(0, true)}
-                    spineSelected={spineSelected}
-                  />
+                  <FitSpread book={book} spreadIndex={spreadIndex}>
+                    <Spread
+                      book={book}
+                      spreadIndex={spreadIndex}
+                      t={t}
+                      activeIndex={index}
+                      activeFrame={frame}
+                      onSelect={choosePage}
+                      onCrop={
+                        readOnly || busy
+                          ? undefined
+                          : (at, slot, crop) => {
+                              const crops = [
+                                ...current.current.pages[at].crops,
+                              ];
+                              crops[slot] = crop;
+                              patchPage(at, { crops });
+                            }
+                      }
+                      onText={
+                        readOnly || busy ? undefined : (at) => focusText(at)
+                      }
+                      onSpine={
+                        readOnly || busy ? undefined : () => focusText(0, true)
+                      }
+                      spineSelected={spineSelected}
+                    />
+                  </FitSpread>
                   <IconButton
                     title={t.next}
                     disabled={spreadIndex === spreadList.length - 1}
@@ -1490,7 +1725,7 @@ function App() {
                     <IconButton
                       title={t.moveLeft}
                       disabled={
-                        readOnly || index <= 1 || index > book.pageCount
+                        readOnly || busy || index <= 1 || index > book.pageCount
                       }
                       onClick={() => move(index, index - 1)}
                     >
@@ -1499,7 +1734,7 @@ function App() {
                     <IconButton
                       title={t.moveRight}
                       disabled={
-                        readOnly || index < 1 || index >= book.pageCount
+                        readOnly || busy || index < 1 || index >= book.pageCount
                       }
                       onClick={() => move(index, index + 1)}
                     >
@@ -1515,7 +1750,7 @@ function App() {
                         defaultValue={
                           index >= 1 && index <= book.pageCount ? index : ""
                         }
-                        disabled={readOnly || page.kind !== "page"}
+                        disabled={readOnly || busy || page.kind !== "page"}
                         onBlur={(e) => {
                           const to = Number(e.target.value);
                           if (
@@ -1540,7 +1775,7 @@ function App() {
                       aria-label={pageLabel(p, i, t)}
                       aria-pressed={index === i}
                       onClick={() => choosePage(i, 0)}
-                      draggable={!readOnly && p.kind === "page"}
+                      draggable={!readOnly && !busy && p.kind === "page"}
                       onDragStart={(e) =>
                         e.dataTransfer.setData("text/matiane-page", p.id)
                       }
@@ -1593,7 +1828,7 @@ function App() {
                   {t.insidePages}
                 </button>
               </div>
-              <fieldset disabled={readOnly} className="design-fields">
+              <fieldset disabled={readOnly || busy} className="design-fields">
                 <label className="format-control">
                   {t.bookSize}
                   <select
@@ -1739,7 +1974,7 @@ function App() {
                     page={spineSelected ? book.cover.spine : page}
                     t={t}
                     textareaRef={captionInput}
-                    disabled={readOnly}
+                    disabled={readOnly || busy}
                     onChange={(patch) =>
                       spineSelected
                         ? patchCover({
@@ -2012,7 +2247,7 @@ function App() {
           <p className="export-footer">{t.bleedFooter}</p>
         </Modal>
       )}
-    </>
+    </div>
   );
 }
 function BookCard({ record, cover, t, onOpen, onDelete, onCopy, busy }) {

@@ -531,6 +531,23 @@ const extra = {
 };
 const updated = {
   en: {
+    aiBuild: "Build with AI! (test)",
+    aiHint:
+      "AI arranges all uploaded photos and adds gentle captions. You can edit everything afterwards.",
+    aiPreparing: "Preparing photos…",
+    aiAnalysing: "AI is analysing your photos…",
+    aiPlanning: "AI is arranging your book…",
+    aiSaving: "Saving the original book…",
+    aiCancelling: "Cancelling assembly…",
+    aiDone: "Your book is ready. The original is saved as a backup.",
+    aiCancelled: "Assembly cancelled. Your book has not changed.",
+    aiFailed: "Could not assemble the book. Your current layout is unchanged.",
+    aiRetry: "Try again",
+    aiBackup: "Before AI assembly",
+    aiUnavailable:
+      "AI assembly is temporarily unavailable. Please try again later.",
+    aiLimit: "The daily AI limit is reached. Please try again tomorrow.",
+    aiPhotoLimit: "A book can contain up to 200 photos.",
     adminBooks: "All books · administrator",
     adminBooksHint:
       "Books saved in any account appear here automatically. Open to review or make a copy to edit in your account.",
@@ -562,6 +579,22 @@ const updated = {
     spreadNoBleed: "Without bleed",
   },
   ru: {
+    aiBuild: "Собери с AI! (тест)",
+    aiHint:
+      "ИИ разложит все загруженные фото и добавит тёплые подписи. Затем всё можно отредактировать.",
+    aiPreparing: "Подготавливаем фотографии…",
+    aiAnalysing: "ИИ рассматривает фотографии…",
+    aiPlanning: "ИИ собирает книгу…",
+    aiSaving: "Сохраняем исходную книгу…",
+    aiCancelling: "Отменяем сборку…",
+    aiDone: "Книга собрана. Исходный макет сохранён в резервной копии.",
+    aiCancelled: "Сборка отменена. Макет не изменился.",
+    aiFailed: "Не удалось собрать книгу. Ваш текущий макет не изменился.",
+    aiRetry: "Попробовать снова",
+    aiBackup: "До сборки ИИ",
+    aiUnavailable: "Сборка ИИ временно недоступна. Попробуйте позже.",
+    aiLimit: "Дневной лимит ИИ исчерпан. Попробуйте завтра.",
+    aiPhotoLimit: "В книге может быть не более 200 фотографий.",
     adminBooks: "Все книги · администратор",
     adminBooksHint:
       "Здесь автоматически появляются книги, сохранённые во всех аккаунтах. Откройте для просмотра или создайте копию, чтобы редактировать в своём аккаунте.",
@@ -594,6 +627,22 @@ const updated = {
     spreadNoBleed: "Без вылетов",
   },
   ka: {
+    aiBuild: "ააწყვე AI-ით! (ტესტი)",
+    aiHint:
+      "AI ყველა ატვირთულ ფოტოს დაალაგებს და თბილ წარწერებს დაამატებს. შემდეგ ყველაფრის რედაქტირება შეგიძლიათ.",
+    aiPreparing: "ფოტოების მომზადება…",
+    aiAnalysing: "AI ფოტოებს აანალიზებს…",
+    aiPlanning: "AI წიგნს აწყობს…",
+    aiSaving: "საწყისი წიგნის შენახვა…",
+    aiCancelling: "აწყობის გაუქმება…",
+    aiDone: "წიგნი მზადაა. საწყისი განლაგება სარეზერვო ასლად შეინახა.",
+    aiCancelled: "აწყობა გაუქმდა. განლაგება არ შეცვლილა.",
+    aiFailed: "წიგნის აწყობა ვერ მოხერხდა. თქვენი განლაგება არ შეცვლილა.",
+    aiRetry: "ხელახლა ცდა",
+    aiBackup: "AI-ით აწყობამდე",
+    aiUnavailable: "AI-ით აწყობა დროებით მიუწვდომელია. სცადეთ მოგვიანებით.",
+    aiLimit: "AI-ის დღიური ლიმიტი ამოიწურა. სცადეთ ხვალ.",
+    aiPhotoLimit: "წიგნში მაქსიმუმ 200 ფოტოა შესაძლებელი.",
     adminBooks: "ყველა წიგნი · ადმინისტრატორი",
     adminBooksHint:
       "აქ ავტომატურად ჩანს ყველა ანგარიშში შენახული წიგნი. გახსენით სანახავად ან შექმენით ასლი თქვენს ანგარიშში რედაქტირებისთვის.",
@@ -649,6 +698,18 @@ export function errorMessage(error, t) {
       storage_quota: "quota",
       version_conflict: "conflict",
       version_limit: "versionLimit",
+      ai_unavailable: "aiUnavailable",
+      ai_not_configured: "aiUnavailable",
+      ai_provider_auth: "aiUnavailable",
+      ai_provider_request: "aiUnavailable",
+      ai_provider_connection: "aiUnavailable",
+      ai_busy: "tooMany",
+      ai_provider_limit: "tooMany",
+      ai_limit: "aiLimit",
+      ai_daily_limit: "aiLimit",
+      ai_photo_limit: "aiPhotoLimit",
+      ai_timeout: "aiFailed",
+      ai_failed: "aiFailed",
     }[error.code] || "error"
   ];
 }

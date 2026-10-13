@@ -46,7 +46,14 @@ listener. Its own source revision is pinned and is updated deliberately.
 Runtime `GITHUB_DEPLOY_PROJECTS` is a literal JSON array:
 
 ```json
-[{"application_uuid":"COOLIFY_APPLICATION_UUID","project_uuid":"COOLIFY_PROJECT_UUID","repository":"https://github.com/OWNER/REPOSITORY.git","branch":"main"}]
+[
+  {
+    "application_uuid": "COOLIFY_APPLICATION_UUID",
+    "project_uuid": "COOLIFY_PROJECT_UUID",
+    "repository": "https://github.com/OWNER/REPOSITORY.git",
+    "branch": "main"
+  }
+]
 ```
 
 Each registration is checked against Coolify's application, project, repository
@@ -87,6 +94,18 @@ project. Its build pack is Docker Compose; `/server/compose.yml` builds
 `server/Dockerfile` with repository root context. Compose publishes only
 `127.0.0.1:3001:3000` and mounts `account-data` at `/data`. Coolify namespaces
 this volume for the application. Keep it across redeployments.
+
+AI assembly uses the same backend and persistent SQLite storage. Add
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (Workers AI permission for
+that account) to this application's runtime environment. They are passed by
+Compose and are never needed in the frontend build. Existing Cloudflare proxy
+bindings in Codex allow provider testing; the VPS needs its own securely entered
+token. Do not transfer a proxy placeholder as a credential. The backend pins
+`api.cloudflare.com` and the Gemma model; redirects are rejected. Analyses are
+cached by owner, image and language, and a persistent daily budget limits free
+usage. `/api/ai/session` reports whether the backend is configured; it never
+returns the account credential. Active jobs are temporary: deployment or server
+restart can interrupt an assembly, while the user's current book is preserved.
 
 The account app runs as the unprivileged Node user and receives no Docker
 socket or host publication mount. Its health check is `node

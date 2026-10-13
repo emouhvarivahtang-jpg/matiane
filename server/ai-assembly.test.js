@@ -66,9 +66,43 @@ test("cancelled requests never contact the provider and API failures do not expo
   assert.equal(calls, 0);
   await assert.rejects(
     provider({ payload: {} }),
-    (error) => error instanceof AiError && error.code === "ai_unavailable",
+    (error) => error instanceof AiError && error.code === "ai_provider_auth",
   );
   assert.equal(calls, 1);
+});
+test("provider diagnostics distinguish request rejection from network failure without leaking secrets", async () => {
+  for (const [status, code] of [
+    [400, "ai_provider_request"],
+    [403, "ai_provider_auth"],
+    [429, "ai_provider_limit"],
+  ]) {
+    const provider = cloudflareProvider({
+      accountId: "a".repeat(32),
+      token: "test-token-only",
+      fetchImpl: async () => ({ status, ok: false }),
+    });
+    await assert.rejects(
+      provider({ payload: {} }),
+      (error) => error instanceof AiError && error.code === code,
+    );
+  }
+  let calls = 0;
+  const provider = cloudflareProvider({
+    accountId: "a".repeat(32),
+    token: "test-token-only",
+    fetchImpl: async () => {
+      calls++;
+      throw new Error("private transport detail");
+    },
+  });
+  await assert.rejects(
+    provider({ payload: {} }),
+    (error) =>
+      error instanceof AiError &&
+      error.code === "ai_provider_connection" &&
+      !error.message.includes("private"),
+  );
+  assert.equal(calls, 2);
 });
 test("model responses reject malformed objects and normalize out-of-range focus and styling", () => {
   assert.throws(() => validateAnalysis("null"), AiError);

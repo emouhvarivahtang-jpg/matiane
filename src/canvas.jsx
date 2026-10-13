@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import {
   slots,
   captionBox,
@@ -12,6 +12,43 @@ import { browserCaption, fontFamily } from "./text";
 import { pageSize, coverSize, bookFormat, spineTextBox } from "./format";
 const pct = (n) => `${n}%`;
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+// Fit the physical sheet to both dimensions of the editor, leaving room for
+// labels and the selection outline. Preview spreads keep their own sizing.
+export function FitSpread({ book, spreadIndex, children }) {
+  const ref = useRef(null);
+  const [bounds, setBounds] = useState({ width: 0, height: 0 });
+  useLayoutEffect(() => {
+    const element = ref.current;
+    const measure = () => {
+      const { width, height } = element.getBoundingClientRect();
+      setBounds((previous) =>
+        previous.width === width && previous.height === height
+          ? previous
+          : { width, height },
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const size = spreadIndex === 0 ? coverSize(book) : bookFormat(book);
+  const ratio = (spreadIndex === 0 ? size.w : size.w * 2) / size.h;
+  const width = Math.max(
+    0,
+    Math.min(bounds.width - 16, (bounds.height - 44) * ratio, 1080),
+  );
+  return (
+    <div
+      ref={ref}
+      className="spread-fit"
+      style={{ "--spread-fit-width": `${width}px` }}
+    >
+      {children}
+    </div>
+  );
+}
 export function PhotoFrame({
   page,
   slot,
