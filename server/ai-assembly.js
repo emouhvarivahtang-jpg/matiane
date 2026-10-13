@@ -364,21 +364,30 @@ export function createAiJobs({
     const freshPhotos = new Set(
       cache.filter((item) => !item.analysis).map((item) => item.key),
     ).size;
+    const jobId = randomUUID(),
+      created = Date.now();
     // Cached analyses do not consume another photo allowance. Reserve conservatively for new work.
     const reservation = budgetReserve(
       owner,
       freshPhotos,
       25 * freshPhotos + 10 * pageCount + 100,
+      {
+        id: jobId,
+        startedAt: new Date(created).toISOString(),
+        photoCount: input.photos.length,
+        pageCount,
+        cachedPhotos: input.photos.length - freshPhotos,
+      },
     );
     const job = {
-      id: randomUUID(),
+      id: jobId,
       token: randomBytes(32).toString("base64url"),
       owner,
       status: "processing",
       phase: "preparing",
       completed: 0,
       total: input.photos.length,
-      created: Date.now(),
+      created,
       controller: new AbortController(),
       neurons: 0,
       analysedPhotos: 0,
@@ -511,6 +520,8 @@ export function createAiJobs({
         budgetFinish(reservation, job.neurons, {
           analysedPhotos: job.analysedPhotos,
           unknownCost: !!job.unknownCost,
+          jobId: job.id,
+          status: job.status,
         });
       }
     })();

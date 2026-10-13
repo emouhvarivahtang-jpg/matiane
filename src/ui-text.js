@@ -1,6 +1,35 @@
 import { translations } from "./i18n";
 const extra = {
   en: {
+    aiUsageTitle: "AI usage",
+    aiUsageRefresh: "Refresh usage",
+    aiUsageLoading: "Loading usage…",
+    aiUsageError:
+      "Could not refresh AI usage. Try again; the last figures may be out of date.",
+    aiUsageUsed: "Counted today",
+    aiUsageRemaining: "Available for Matiane",
+    aiUsageReserved: "Reserved by active jobs",
+    aiUsageOf: "of",
+    aiUsageReset: "Daily reset",
+    aiUsageTbilisi: "Tbilisi",
+    aiUsageAllowance:
+      "Cloudflare gives {free} free neurons each day. Matiane uses up to {limit}, keeping a buffer. A new assembly needs a reserve before it starts.",
+    aiUsageLimitReached:
+      "The AI allowance is used up. Assembly resumes after the daily reset; books and manual editing remain available.",
+    aiUsageRecent: "Recent assemblies",
+    aiUsageTime: "Time · Tbilisi",
+    aiUsagePhotos: "Photos",
+    aiUsageCached: "Reused analyses",
+    aiUsageStatus: "Status",
+    aiUsageProcessing: "Processing",
+    aiUsageCompleted: "Completed",
+    aiUsageFailed: "Failed",
+    aiUsageCancelled: "Cancelled",
+    aiUsageInterrupted: "Interrupted",
+    aiUsageNoRuns: "New assemblies and their cost will appear here.",
+    aiUsageScope:
+      "Matiane usage only. Other requests in your Cloudflare account are not included. ≈ marks a conservative estimate after an interrupted request; the Cloudflare total may be lower.",
+    aiUsageDashboard: "Cloudflare account usage",
     localImportProgress: "Saving your local books in your account…",
     localImportDone: "Your local books are saved in your account.",
     localImportFailed:
@@ -147,6 +176,35 @@ const extra = {
     saved: "Saved on this device",
   },
   ru: {
+    aiUsageTitle: "Расход AI",
+    aiUsageRefresh: "Обновить расход",
+    aiUsageLoading: "Загружаем расход…",
+    aiUsageError:
+      "Не удалось обновить расход AI. Попробуйте ещё раз; последние цифры могли устареть.",
+    aiUsageUsed: "Учтено сегодня",
+    aiUsageRemaining: "Доступно для Matiane",
+    aiUsageReserved: "Занято текущими сборками",
+    aiUsageOf: "из",
+    aiUsageReset: "Обновление лимита",
+    aiUsageTbilisi: "Тбилиси",
+    aiUsageAllowance:
+      "Cloudflare даёт {free} бесплатных neurons в день. Matiane использует до {limit}, оставляя запас. Для запуска новой сборки заранее нужен резерв.",
+    aiUsageLimitReached:
+      "Лимит AI исчерпан. Сборка снова заработает после обновления лимита; книги и ручное редактирование остаются доступны.",
+    aiUsageRecent: "Последние сборки",
+    aiUsageTime: "Время · Тбилиси",
+    aiUsagePhotos: "Фото",
+    aiUsageCached: "Анализ использован повторно",
+    aiUsageStatus: "Статус",
+    aiUsageProcessing: "Собирается",
+    aiUsageCompleted: "Готово",
+    aiUsageFailed: "Ошибка",
+    aiUsageCancelled: "Отменено",
+    aiUsageInterrupted: "Прервано",
+    aiUsageNoRuns: "Здесь появятся новые сборки и их стоимость.",
+    aiUsageScope:
+      "Здесь только расход Matiane. Другие запросы вашего аккаунта Cloudflare не учитываются. ≈ — оценка с запасом после прерванного запроса; реальный расход Cloudflare может быть ниже.",
+    aiUsageDashboard: "Расход всего аккаунта Cloudflare",
     localImportProgress: "Сохраняем локальные книги в ваш аккаунт…",
     localImportDone: "Локальные книги сохранены в вашем аккаунте.",
     localImportFailed:
@@ -383,6 +441,35 @@ const extra = {
       "Примеры нужны для знакомства. Для печати используйте свои фото высокого разрешения.",
   },
   ka: {
+    aiUsageTitle: "AI-ის მოხმარება",
+    aiUsageRefresh: "განახლება",
+    aiUsageLoading: "მონაცემები იტვირთება…",
+    aiUsageError:
+      "AI-ის მოხმარება ვერ განახლდა. სცადეთ ხელახლა; ბოლო მონაცემები შესაძლოა მოძველებული იყოს.",
+    aiUsageUsed: "დღეს აღრიცხული",
+    aiUsageRemaining: "Matiane-სთვის დარჩენილი",
+    aiUsageReserved: "მიმდინარე აწყობის რეზერვი",
+    aiUsageOf: "სულ",
+    aiUsageReset: "ლიმიტის განახლება",
+    aiUsageTbilisi: "თბილისი",
+    aiUsageAllowance:
+      "Cloudflare ყოველდღე {free} უფასო neurons-ს იძლევა. Matiane იყენებს მაქსიმუმ {limit}-ს და ტოვებს მარაგს. ახალი აწყობის დაწყებამდე საჭიროა რეზერვი.",
+    aiUsageLimitReached:
+      "AI-ის ლიმიტი ამოიწურა. აწყობა ლიმიტის განახლების შემდეგ აღდგება; წიგნები და ხელით რედაქტირება ხელმისაწვდომია.",
+    aiUsageRecent: "ბოლო აწყობები",
+    aiUsageTime: "დრო · თბილისი",
+    aiUsagePhotos: "ფოტოები",
+    aiUsageCached: "ხელახლა გამოყენებული ანალიზი",
+    aiUsageStatus: "სტატუსი",
+    aiUsageProcessing: "იწყობა",
+    aiUsageCompleted: "მზადაა",
+    aiUsageFailed: "შეცდომა",
+    aiUsageCancelled: "გაუქმებულია",
+    aiUsageInterrupted: "შეწყვეტილია",
+    aiUsageNoRuns: "ახალი აწყობები და მათი ღირებულება აქ გამოჩნდება.",
+    aiUsageScope:
+      "ნაჩვენებია მხოლოდ Matiane-ს მოხმარება. Cloudflare-ის ანგარიშის სხვა მოთხოვნები არ ითვლება. ≈ ნიშნავს შეწყვეტილი მოთხოვნის სარეზერვო შეფასებას; რეალური მოხმარება შესაძლოა ნაკლები იყოს.",
+    aiUsageDashboard: "Cloudflare-ის ანგარიშის მოხმარება",
     localImportProgress: "ლოკალური წიგნები თქვენს ანგარიშში ინახება…",
     localImportDone: "ლოკალური წიგნები თქვენს ანგარიშში შენახულია.",
     localImportFailed:

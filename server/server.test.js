@@ -151,6 +151,105 @@ async function waitAi(f, job, user) {
   }
   throw new Error("AI job did not complete");
 }
+test("AI usage is administrator-only and reports spent, reserved, cached and daily-reset figures", async (t) => {
+  let release, entered;
+  const held = new Promise((resolve) => {
+      release = resolve;
+    }),
+    began = new Promise((resolve) => {
+      entered = resolve;
+    });
+  const f = await setup(t, {
+    adminEmails: "metrics-admin@example.invalid",
+    aiProvider: async ({ kind, payload }) => {
+      if (kind === "analysis") {
+        entered();
+        await held;
+      }
+      return aiResult(kind, payload);
+    },
+  });
+  const admin = await f.register("metrics-admin@example.invalid"),
+    user = await f.register("regular@example.invalid");
+  assert.equal((await f.request("/admin/ai-usage")).status, 401);
+  assert.equal((await f.request("/admin/ai-usage", { user })).status, 403);
+  const empty = await f.request("/admin/ai-usage", { user: admin });
+  assert.equal(empty.status, 200);
+  assert.equal(empty.data.used, 0);
+  assert.equal(empty.data.remaining, 8000);
+  assert.equal(empty.data.cloudflareFreeDaily, 10000);
+  assert.ok(empty.data.resetsAt.endsWith("T00:00:00.000Z"));
+  assert.equal(empty.headers.get("cache-control"), "no-store");
+  const guest = await f.request("/ai/session"),
+    headers = { "X-Matiane-AI-Guest": guest.data.guestToken };
+  const input = { language: "en", pageCount: 40, photos: [await aiPhoto()] };
+  const start = await f.request("/ai/assemble", {
+    method: "POST",
+    body: input,
+    headers,
+  });
+  await began;
+  const pending = (await f.request("/admin/ai-usage", { user: admin })).data;
+  assert.equal(pending.used, 0);
+  assert.equal(pending.reserved, 525);
+  assert.equal(pending.remaining, 7475);
+  assert.equal(pending.recent[0].status, "processing");
+  assert.equal(pending.recent[0].photoCount, 1);
+  assert.equal(pending.recent[0].cachedPhotos, 0);
+  release();
+  assert.equal((await waitAi(f, start.data)).data.status, "completed");
+  const done = (await f.request("/admin/ai-usage", { user: admin })).data;
+  assert.equal(done.used, 13);
+  assert.equal(done.reserved, 0);
+  assert.equal(done.remaining, 7987);
+  assert.equal(done.recent[0].neurons, 13);
+  assert.equal(done.recent[0].estimated, false);
+  assert.equal(done.recent[0].status, "completed");
+  assert.ok(!JSON.stringify(done).includes(guest.data.guestToken));
+  assert.ok(!JSON.stringify(done).includes(input.photos[0].image));
+  const repeat = await f.request("/ai/assemble", {
+    method: "POST",
+    body: input,
+    headers,
+  });
+  await waitAi(f, repeat.data);
+  await f.restart();
+  const after = (await f.request("/admin/ai-usage", { user: admin })).data;
+  assert.equal(after.used, 21);
+  assert.equal(after.reserved, 0);
+  assert.equal(after.recent[0].cachedPhotos, 1);
+  assert.equal(after.recent[0].neurons, 8);
+  const db = new DatabaseSync(path.join(f.dir, "matiane.sqlite"));
+  db.prepare("UPDATE ai_budgets SET day=?").run("2000-01-01");
+  db.close();
+  const nextDay = (await f.request("/admin/ai-usage", { user: admin })).data;
+  assert.equal(nextDay.used, 0);
+  assert.equal(nextDay.remaining, 8000);
+});
+test("usage converts interrupted reservations into estimates and releases active-job capacity on restart", async (t) => {
+  const f = await setup(t, { adminEmails: "metrics-admin@example.invalid" });
+  const admin = await f.register("metrics-admin@example.invalid");
+  const db = new DatabaseSync(path.join(f.dir, "matiane.sqlite"));
+  const key = await import("node:crypto").then(({ createHash }) =>
+    createHash("sha256").update("ai-global").digest("hex"),
+  );
+  db.prepare(
+    "INSERT INTO ai_budgets(key,day,neurons,reserved) VALUES(?,?,13,525)",
+  ).run(key, new Date().toISOString().slice(0, 10));
+  db.prepare(
+    "INSERT INTO ai_runs(id,started_at,photo_count,page_count,cached_photos,status,reserved) VALUES('interrupted-job',?,1,40,0,'processing',525)",
+  ).run(new Date().toISOString());
+  db.close();
+  await f.restart();
+  const usage = (await f.request("/admin/ai-usage", { user: admin })).data;
+  assert.equal(usage.used, 538);
+  assert.equal(usage.reserved, 0);
+  assert.equal(usage.remaining, 7462);
+  assert.equal(usage.recent[0].status, "interrupted");
+  assert.equal(usage.recent[0].neurons, 525);
+  assert.equal(usage.recent[0].reportedNeurons, 0);
+  assert.equal(usage.recent[0].estimated, true);
+});
 test("guest AI assembly requires its capability, reduces images, returns only analyses and plans, and reuses owner-scoped cache", async (t) => {
   const calls = [];
   const f = await setup(t, {

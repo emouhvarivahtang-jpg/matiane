@@ -96,6 +96,7 @@ export async function createApp(options = {}) {
       "CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);",
       "CREATE TABLE IF NOT EXISTS ai_analysis (key TEXT PRIMARY KEY, data TEXT NOT NULL, created_at TEXT NOT NULL);",
       "CREATE TABLE IF NOT EXISTS ai_budgets (key TEXT PRIMARY KEY, day TEXT NOT NULL, photos INTEGER NOT NULL DEFAULT 0, neurons REAL NOT NULL DEFAULT 0, reserved REAL NOT NULL DEFAULT 0);",
+      "CREATE TABLE IF NOT EXISTS ai_runs (id TEXT PRIMARY KEY, started_at TEXT NOT NULL, ended_at TEXT, photo_count INTEGER NOT NULL, page_count INTEGER NOT NULL, cached_photos INTEGER NOT NULL, status TEXT NOT NULL, reserved REAL NOT NULL, reported_neurons REAL NOT NULL DEFAULT 0, charged_neurons REAL NOT NULL DEFAULT 0);",
       "CREATE INDEX IF NOT EXISTS books_user ON books(user_id); CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires);",
     ].join("\n"),
   );
@@ -144,6 +145,24 @@ export async function createApp(options = {}) {
     );
   }
   const aiGuestSecret = randomBytes(32);
+  const aiDailyLimit = Math.min(
+    8000,
+    Math.max(
+      1000,
+      Number(options.aiDailyNeurons || process.env.MATIANE_AI_DAILY_NEURONS) ||
+        8000,
+    ),
+  );
+  // Jobs live in memory. After a crash their reservations become conservative usage,
+  // rather than permanently masquerading as active jobs until midnight.
+  transaction(() => {
+    db.exec(
+      "UPDATE ai_budgets SET neurons=neurons+reserved,reserved=0 WHERE reserved>0",
+    );
+    db.prepare(
+      "UPDATE ai_runs SET status='interrupted',ended_at=?,charged_neurons=reserved WHERE status='processing'",
+    ).run(iso());
+  });
   const requestIp = (req) =>
     trustProxy
       ? String(req.headers["x-real-ip"] || req.socket.remoteAddress)
@@ -187,7 +206,7 @@ export async function createApp(options = {}) {
     }
     return aiGuestOwner(req);
   }
-  function reserveAiBudget(owner, photoCount, neurons) {
+  function reserveAiBudget(owner, photoCount, neurons, run) {
     return transaction(() => {
       const day = iso().slice(0, 10);
       const keys = [hash("ai-owner:" + owner), hash("ai-global")];
@@ -204,28 +223,38 @@ export async function createApp(options = {}) {
       const perOwner = owner.startsWith("guest:") ? 200 : 400;
       if (rows[0].photos + photoCount > perOwner)
         throw new AiError("ai_daily_limit", 429);
-      const limit = Math.min(
-        8000,
-        Math.max(
-          1000,
-          Number(
-            options.aiDailyNeurons || process.env.MATIANE_AI_DAILY_NEURONS,
-          ) || 8000,
-        ),
-      );
-      if (rows[1].neurons + rows[1].reserved + neurons > limit)
+      if (rows[1].neurons + rows[1].reserved + neurons > aiDailyLimit)
         throw new AiError("ai_daily_limit", 429);
       for (const row of rows)
         db.prepare(
           "UPDATE ai_budgets SET photos=photos+?,reserved=reserved+? WHERE key=?",
         ).run(photoCount, neurons, row.key);
+      if (run)
+        db.prepare(
+          "INSERT INTO ai_runs(id,started_at,photo_count,page_count,cached_photos,status,reserved) VALUES(?,?,?,?,?,'processing',?)",
+        ).run(
+          run.id,
+          run.startedAt,
+          run.photoCount,
+          run.pageCount,
+          run.cachedPhotos,
+          neurons,
+        );
+      db.prepare(
+        "DELETE FROM ai_runs WHERE status<>'processing' AND started_at<?",
+      ).run(new Date(Date.now() - 30 * 86400_000).toISOString());
       return { keys, day, neurons, photoCount };
     });
   }
   function finishAiBudget(
     reservation,
     neurons,
-    { analysedPhotos = reservation?.photoCount || 0, unknownCost = false } = {},
+    {
+      analysedPhotos = reservation?.photoCount || 0,
+      unknownCost = false,
+      jobId,
+      status,
+    } = {},
   ) {
     if (!reservation) return;
     transaction(() => {
@@ -243,6 +272,10 @@ export async function createApp(options = {}) {
           key,
           reservation.day,
         );
+      if (jobId)
+        db.prepare(
+          "UPDATE ai_runs SET ended_at=?,status=?,reported_neurons=?,charged_neurons=? WHERE id=?",
+        ).run(iso(), status, Math.max(0, neurons), Math.max(0, charged), jobId);
     });
   }
   const ai = createAiJobs({
@@ -636,6 +669,55 @@ export async function createApp(options = {}) {
       if (!["GET", "HEAD"].includes(req.method)) mutation(req, session);
       if (route.startsWith("/api/admin/")) {
         if (!isAdmin(session.email)) fail(403, "forbidden");
+        if (route === "/api/admin/ai-usage" && req.method === "GET") {
+          const now = new Date(),
+            day = now.toISOString().slice(0, 10);
+          const row = db
+            .prepare(
+              "SELECT neurons,reserved FROM ai_budgets WHERE key=? AND day=?",
+            )
+            .get(hash("ai-global"), day);
+          const used = row?.neurons || 0,
+            reserved = row?.reserved || 0;
+          return respond(res, 200, {
+            day,
+            unit: "neurons",
+            sampledAt: now.toISOString(),
+            dailyLimit: aiDailyLimit,
+            cloudflareFreeDaily: 10000,
+            used,
+            reserved,
+            remaining: Math.max(0, aiDailyLimit - used - reserved),
+            resetsAt: new Date(
+              Date.UTC(
+                now.getUTCFullYear(),
+                now.getUTCMonth(),
+                now.getUTCDate() + 1,
+              ),
+            ).toISOString(),
+            providerConfigured: ai.available,
+            cloudflareDashboardUrl:
+              "https://dash.cloudflare.com/?to=/:account/ai/workers-ai",
+            recent: db
+              .prepare(
+                "SELECT * FROM ai_runs ORDER BY started_at DESC,id DESC LIMIT 12",
+              )
+              .all()
+              .map((run) => ({
+                id: run.id,
+                startedAt: run.started_at,
+                endedAt: run.ended_at,
+                photoCount: run.photo_count,
+                pageCount: run.page_count,
+                cachedPhotos: run.cached_photos,
+                status: run.status,
+                neurons: run.charged_neurons,
+                reportedNeurons: run.reported_neurons,
+                estimated:
+                  run.charged_neurons > run.reported_neurons + 0.000001,
+              })),
+          });
+        }
         if (route === "/api/admin/books" && req.method === "GET") {
           const offset = Math.max(
             0,

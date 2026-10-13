@@ -90,6 +90,114 @@ body {
   display: flex;
   gap: 12px;
 }
+.admin-ai-usage {
+  margin: 28px 0 40px;
+  padding: 24px;
+  border: 1px solid #d5dbc9;
+  border-radius: 10px;
+  background: #f5f7f0;
+}
+.ai-usage-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.ai-usage-heading h2 {
+  margin: 8px 0 18px;
+}
+.ai-usage-heading > button {
+  flex-shrink: 0;
+}
+.ai-usage-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.ai-usage-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.ai-usage-metrics span {
+  font-size: 12px;
+  color: #65735c;
+}
+.ai-usage-metrics strong {
+  font-size: 30px;
+  font-weight: 500;
+}
+.ai-usage-metrics small {
+  color: #7b856f;
+}
+.ai-usage-meter {
+  display: block;
+  width: 100%;
+  height: 12px;
+  margin: 20px 0 14px;
+  accent-color: #5c7656;
+}
+.admin-ai-usage .small-note {
+  line-height: 1.7;
+  margin: 8px 0;
+}
+.admin-ai-usage h3 {
+  margin: 24px 0 12px;
+  font-size: 14px;
+}
+.ai-usage-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+.ai-usage-table {
+  width: 100%;
+  min-width: 460px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.ai-usage-table th,
+.ai-usage-table td {
+  text-align: left;
+  padding: 10px 12px 10px 0;
+  border-bottom: 1px solid #dce2d4;
+  white-space: nowrap;
+}
+.ai-usage-table th {
+  color: #67735e;
+  font-weight: 500;
+}
+.ai-usage-table td:last-child,
+.ai-usage-table th:last-child {
+  text-align: right;
+  padding-right: 0;
+}
+.ai-usage-note a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ai-usage-limit {
+  color: #984d3c;
+  line-height: 1.6;
+}
+@media (max-width: 650px) {
+  .admin-ai-usage {
+    padding: 18px 14px;
+  }
+  .ai-usage-heading {
+    align-items: flex-start;
+  }
+  .ai-usage-heading h2 {
+    font-size: 18px;
+  }
+  .ai-usage-heading > button {
+    font-size: 11px;
+    padding: 8px;
+  }
+  .ai-usage-metrics {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+}
 .account-invitation {
   padding: 20px 24px;
   border: 1px solid var(--line);

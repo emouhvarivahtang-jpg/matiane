@@ -48,6 +48,7 @@ import { api, CloudWriter } from "./api";
 import { importGuestBooks } from "./local-import";
 import { buildWithAi } from "./ai-client";
 import { assembleBook } from "./ai-assembly";
+import { AdminAiUsage } from "./ai-usage";
 import { FORMATS, bookFormat, pageSize } from "./format";
 import { TextControls } from "./text-controls";
 import { PageCanvas, Spread, FitSpread } from "./canvas";
@@ -1219,6 +1220,9 @@ function App() {
             <p className="small-note">
               {t.cloudBooks} · {Math.round(storage / 1024 / 1024)} / 1024 MB
             </p>
+          )}
+          {user?.isAdmin && (
+            <AdminAiUsage key={user.id} t={t} language={language} />
           )}
           {user?.isAdmin && (
             <section className="admin-books">
