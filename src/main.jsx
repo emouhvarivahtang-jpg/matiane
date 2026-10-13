@@ -122,6 +122,7 @@ function App() {
       completed: 0,
       total: 0,
       error: "",
+      diagnostics: null,
     });
   const [history, setHistory] = useState([]),
     [future, setFuture] = useState([]),
@@ -418,6 +419,7 @@ function App() {
       completed: 0,
       total: 0,
       error: "",
+      diagnostics: null,
     });
     setCloudError(null);
     setCloudStatus(
@@ -721,6 +723,11 @@ function App() {
       token = activeToken.current,
       controller = new AbortController();
     aiController.current = controller;
+    let lastProgress = {
+      phase: "preparing",
+      completed: 0,
+      total: snapshot.photos.length,
+    };
     setBusy(true);
     setAi({
       running: true,
@@ -728,6 +735,7 @@ function App() {
       completed: 0,
       total: snapshot.photos.length,
       error: "",
+      diagnostics: null,
     });
     try {
       await localSave(
@@ -739,12 +747,15 @@ function App() {
       const result = await buildWithAi(snapshot, {
         signal: controller.signal,
         signedIn: !!user,
-        onProgress: (value) =>
-          setAi((state) => ({ ...state, ...value, running: true })),
+        onProgress: (value) => {
+          lastProgress = { ...lastProgress, ...value };
+          setAi((state) => ({ ...state, ...value, running: true }));
+        },
       });
       if (controller.signal.aborted || token !== activeToken.current)
         throw new DOMException("Cancelled", "AbortError");
       const next = assembleBook(snapshot, result.analysis, result.plan);
+      lastProgress = { ...lastProgress, phase: "saving" };
       setAi((state) => ({ ...state, phase: "saving" }));
       // A separate local book shares photo records, so a backup does not duplicate image data.
       const backup = validateBook(
@@ -786,6 +797,10 @@ function App() {
           ...state,
           running: false,
           error: explanation === t.error ? t.aiFailed : explanation,
+          diagnostics: {
+            code: error.code || "ai_failed",
+            ...(error.aiDetails || lastProgress),
+          },
         }));
       }
     } finally {
@@ -1555,6 +1570,24 @@ function App() {
               {ai.error && !ai.running && (
                 <div className="ai-assembly-error" role="alert">
                   <p>{ai.error}</p>
+                  {ai.diagnostics && (
+                    <details className="ai-error-details">
+                      <summary>{t.aiErrorDetails}</summary>
+                      <p>
+                        {t[
+                          {
+                            preparing: "aiPreparing",
+                            analysing: "aiAnalysing",
+                            planning: "aiPlanning",
+                            saving: "aiSaving",
+                          }[ai.diagnostics.phase]
+                        ] || t.aiFailed}{" "}
+                        · {ai.diagnostics.completed || 0}/
+                        {ai.diagnostics.total || book.photos.length}
+                      </p>
+                      <code>{ai.diagnostics.code}</code>
+                    </details>
+                  )}
                   <button
                     className="secondary"
                     onClick={autoAssemble}

@@ -1,6 +1,13 @@
 import { translations } from "./i18n";
 const extra = {
   en: {
+    aiErrorDetails: "Error details",
+    aiInvalidResponse:
+      "The AI could not return a complete answer. Your layout is unchanged; please try again.",
+    aiInvalidPhoto:
+      "A photograph could not be read for analysis. Your layout is unchanged.",
+    aiInvalidRequest:
+      "The book could not be prepared for AI assembly. Your layout is unchanged.",
     aiUsageTitle: "AI usage",
     aiUsageRefresh: "Refresh usage",
     aiUsageLoading: "Loading usage…",
@@ -176,6 +183,13 @@ const extra = {
     saved: "Saved on this device",
   },
   ru: {
+    aiErrorDetails: "Подробности ошибки",
+    aiInvalidResponse:
+      "ИИ не смог вернуть полный ответ. Макет не изменился; попробуйте ещё раз.",
+    aiInvalidPhoto:
+      "Не удалось прочитать фотографию для анализа. Макет не изменился.",
+    aiInvalidRequest:
+      "Не удалось подготовить книгу к сборке ИИ. Макет не изменился.",
     aiUsageTitle: "Расход AI",
     aiUsageRefresh: "Обновить расход",
     aiUsageLoading: "Загружаем расход…",
@@ -441,6 +455,12 @@ const extra = {
       "Примеры нужны для знакомства. Для печати используйте свои фото высокого разрешения.",
   },
   ka: {
+    aiErrorDetails: "შეცდომის დეტალები",
+    aiInvalidResponse:
+      "AI-მ სრული პასუხი ვერ დააბრუნა. მაკეტი არ შეცვლილა; სცადეთ ხელახლა.",
+    aiInvalidPhoto:
+      "ფოტოს ანალიზისთვის წაკითხვა ვერ მოხერხდა. მაკეტი არ შეცვლილა.",
+    aiInvalidRequest: "წიგნი AI-ით ასაწყობად ვერ მომზადდა. მაკეტი არ შეცვლილა.",
     aiUsageTitle: "AI-ის მოხმარება",
     aiUsageRefresh: "განახლება",
     aiUsageLoading: "მონაცემები იტვირთება…",
@@ -797,6 +817,10 @@ export function errorMessage(error, t) {
       ai_photo_limit: "aiPhotoLimit",
       ai_timeout: "aiFailed",
       ai_failed: "aiFailed",
+      ai_invalid_response: "aiInvalidResponse",
+      ai_invalid_photo: "aiInvalidPhoto",
+      ai_image_too_large: "aiInvalidPhoto",
+      ai_invalid_request: "aiInvalidRequest",
     }[error.code] || "error"
   ];
 }

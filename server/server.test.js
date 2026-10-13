@@ -7,6 +7,9 @@ import { DatabaseSync } from "node:sqlite";
 import sharp from "sharp";
 import { createApp } from "./index.js";
 import { newBook } from "../src/model.js";
+import { assembleBook } from "../src/ai-assembly.js";
+import { AiError } from "./ai-assembly.js";
+import { randomUUID } from "node:crypto";
 const origin = "http://matiane.test";
 async function setup(t, extra = {}) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "matiane-test-"));
@@ -151,6 +154,164 @@ async function waitAi(f, job, user) {
   }
   throw new Error("AI job did not complete");
 }
+test("74-photo books retry a truncated analysis, use short model aliases and preserve every original ID", async (t) => {
+  let analysisCalls = 0,
+    retried = false;
+  const f = await setup(t, {
+    aiProvider: async ({ kind, payload }) => {
+      if (kind === "analysis") {
+        analysisCalls++;
+        if (analysisCalls === 37) {
+          assert.equal(payload.max_completion_tokens, 800);
+          return { content: '{"description":"unfinished', neurons: 2 };
+        }
+        if (payload.max_completion_tokens === 1200) retried = true;
+      } else {
+        const input = JSON.parse(payload.messages[1].content);
+        assert.equal(input.photos.length, 74);
+        assert.deepEqual(
+          input.photos.map((p) => p.id),
+          Array.from({ length: 74 }, (_, i) => "p" + (i + 1)),
+        );
+        assert.equal(payload.max_completion_tokens, 7800);
+        const allowed =
+          payload.response_format.json_schema.schema.properties.pages.items
+            .properties.photoIds.items.enum;
+        assert.equal(allowed.length, 74);
+      }
+      return aiResult(kind, payload);
+    },
+  });
+  const photos = [];
+  for (let i = 0; i < 74; i++) {
+    const bytes = await sharp({
+      create: {
+        width: 96,
+        height: 64,
+        channels: 3,
+        background: { r: i * 3, g: 80, b: 140 },
+      },
+    })
+      .jpeg()
+      .toBuffer();
+    photos.push({
+      id: randomUUID(),
+      width: 1200,
+      height: 800,
+      image: "data:image/jpeg;base64," + bytes.toString("base64"),
+    });
+  }
+  const session = await f.request("/ai/session"),
+    job = await f.request("/ai/assemble", {
+      method: "POST",
+      headers: { "X-Matiane-AI-Guest": session.data.guestToken },
+      body: { language: "ru", pageCount: 40, photos },
+    });
+  const result = await waitAi(f, job.data);
+  assert.equal(result.data.status, "completed");
+  assert.equal(analysisCalls, 75);
+  assert.equal(retried, true);
+  assert.deepEqual(
+    result.data.result.plan.pages.flatMap((p) => p.photoIds).sort(),
+    photos.map((p) => p.id).sort(),
+  );
+  const book = newBook(40, "Existing cleared book", "ru");
+  book.photos = photos.map((p) => ({
+    id: p.id,
+    width: p.width,
+    height: p.height,
+    src: "/photos/mountains.jpg",
+    name: p.id,
+    demo: true,
+  }));
+  const before = structuredClone(book),
+    built = assembleBook(
+      book,
+      result.data.result.analysis,
+      result.data.result.plan,
+    );
+  assert.deepEqual(book, before);
+  assert.deepEqual(
+    built.pages
+      .slice(1, -1)
+      .flatMap((p) => p.photos)
+      .filter(Boolean)
+      .sort(),
+    photos.map((p) => p.id).sort(),
+  );
+});
+test("permanent malformed analysis records its stage and progress and refunds the unanalysed photo allowance", async (t) => {
+  let calls = 0;
+  const f = await setup(t, {
+    adminEmails: "diagnostic@example.invalid",
+    aiProvider: async () => {
+      calls++;
+      return { content: '{"description":', neurons: 2 };
+    },
+  });
+  const admin = await f.register("diagnostic@example.invalid"),
+    session = await f.request("/ai/session");
+  const job = await f.request("/ai/assemble", {
+    method: "POST",
+    headers: { "X-Matiane-AI-Guest": session.data.guestToken },
+    body: { language: "en", pageCount: 40, photos: [await aiPhoto()] },
+  });
+  const result = await waitAi(f, job.data);
+  assert.equal(calls, 2);
+  assert.equal(result.data.status, "failed");
+  assert.equal(result.data.error, "ai_invalid_response");
+  assert.deepEqual(result.data.errorDetails, {
+    phase: "analysing",
+    completed: 0,
+    total: 1,
+  });
+  const usage = (await f.request("/admin/ai-usage", { user: admin })).data;
+  assert.equal(usage.used, 4);
+  assert.equal(usage.reserved, 0);
+  assert.equal(usage.recent[0].errorCode, "ai_invalid_response");
+  assert.equal(usage.recent[0].phase, "analysing");
+  assert.equal(usage.recent[0].completedPhotos, 0);
+});
+test("final planning connection failure still creates an editable layout from completed visual analysis", async (t) => {
+  const f = await setup(t, {
+    aiProvider: async ({ kind, payload }) => {
+      if (kind === "planning") throw new AiError("ai_provider_connection");
+      return aiResult(kind, payload);
+    },
+  });
+  const session = await f.request("/ai/session"),
+    photo = await aiPhoto();
+  const job = await f.request("/ai/assemble", {
+    method: "POST",
+    headers: { "X-Matiane-AI-Guest": session.data.guestToken },
+    body: { language: "en", pageCount: 40, photos: [photo] },
+  });
+  const result = await waitAi(f, job.data);
+  assert.equal(result.data.status, "completed");
+  assert.deepEqual(result.data.result.plan.pages, []);
+  const book = newBook();
+  book.photos = [
+    {
+      id: photo.id,
+      name: "Original",
+      src: "/photos/mountains.jpg",
+      width: 1200,
+      height: 800,
+    },
+  ];
+  const built = assembleBook(
+    book,
+    result.data.result.analysis,
+    result.data.result.plan,
+  );
+  assert.deepEqual(
+    built.pages
+      .slice(1, -1)
+      .flatMap((p) => p.photos)
+      .filter(Boolean),
+    [photo.id],
+  );
+});
 test("AI usage is administrator-only and reports spent, reserved, cached and daily-reset figures", async (t) => {
   let release, entered;
   const held = new Promise((resolve) => {
@@ -587,7 +748,7 @@ test("cancelled AI jobs discard late results, free concurrency and retain persis
   assert.equal(limited.status, 429);
   assert.equal(limited.data.error, "ai_daily_limit");
 });
-test("invalid AI provider plans fail safely and unavailable provider is reported without changing saved books", async (t) => {
+test("invalid AI provider plans recover from completed analyses and unavailable provider leaves saved books unchanged", async (t) => {
   const f = await setup(t, {
     aiProvider: async ({ kind, payload }) =>
       kind === "analysis"
@@ -605,9 +766,10 @@ test("invalid AI provider plans fail safely and unavailable provider is reported
     headers: { "X-Matiane-AI-Guest": session.data.guestToken },
   });
   const result = await waitAi(f, job.data);
-  assert.equal(result.data.status, "failed");
-  assert.equal(result.data.error, "ai_invalid_response");
-  assert.equal(result.data.result, undefined);
+  assert.equal(result.data.status, "completed");
+  assert.equal(result.data.result.analysis.length, 1);
+  assert.deepEqual(result.data.result.plan.pages, []);
+  assert.equal(result.data.result.analysis[0].id, "photo-one");
   const absent = await setup(t, {
     cloudflareAccountId: "",
     cloudflareToken: "",

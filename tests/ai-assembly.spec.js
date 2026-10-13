@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 
 const AI_BUTTON = "Build with AI! (test)";
 
-async function seedDraft(page) {
+async function seedDraft(page, count = 6) {
   await page.goto("/");
   await expect(
     page.getByRole("button", { name: "New book", exact: true }),
@@ -13,7 +13,7 @@ async function seedDraft(page) {
   const image =
     "data:image/jpeg;base64," +
     (await fs.readFile("public/photos/mountains.jpg")).toString("base64");
-  book.photos = Array.from({ length: 6 }, (_, i) => ({
+  book.photos = Array.from({ length: count }, (_, i) => ({
     id: crypto.randomUUID(),
     name: `Memory ${i + 1}.jpg`,
     src: image,
@@ -163,6 +163,21 @@ async function mockAI(page, { mode = "success" } = {}) {
       return route.fulfill({ json: { status: "cancelled" } });
     }
     if (path === "/api/ai/jobs/synthetic-job") {
+      if (state.mode === "invalid-analysis")
+        return route.fulfill({
+          json: {
+            status: "failed",
+            phase: "analysing",
+            completed: 37,
+            total: state.input.photos.length,
+            error: "ai_invalid_response",
+            errorDetails: {
+              phase: "analysing",
+              completed: 37,
+              total: state.input.photos.length,
+            },
+          },
+        });
       if (state.mode === "failure")
         return route.fulfill({
           json: {
@@ -316,6 +331,22 @@ test("AI failure leaves the entire draft intact and a retry applies the result",
   await expect
     .poll(async () => (await project(page)).pages[1].caption)
     .not.toBe(before.pages[1].caption);
+});
+test("an analysis failure on a 74-photo draft shows its stage and progress while preserving the whole original", async ({
+  page,
+}) => {
+  await mockAI(page, { mode: "invalid-analysis" });
+  await seedDraft(page, 74);
+  const before = await project(page);
+  await page.getByRole("button", { name: AI_BUTTON, exact: true }).click();
+  const failure = page.locator(".ai-assembly-error");
+  await expect(failure).toContainText(
+    "The AI could not return a complete answer",
+  );
+  await failure.getByText("Error details", { exact: true }).click();
+  await expect(failure).toContainText("37/74");
+  await expect(failure.locator("code")).toHaveText("ai_invalid_response");
+  expect(await project(page)).toEqual(before);
 });
 
 test("canceling AI preserves the draft and requests cancellation with the job capability", async ({

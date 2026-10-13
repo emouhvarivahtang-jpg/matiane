@@ -143,8 +143,15 @@ export async function buildWithAi(
       }
       onProgress(value);
       if (value.status === "completed") return value.result;
-      if (value.status === "failed")
-        throw new ApiError(value.error || "ai_failed", 502);
+      if (value.status === "failed") {
+        const failure = new ApiError(value.error || "ai_failed", 502);
+        failure.aiDetails = value.errorDetails || {
+          phase: value.phase,
+          completed: value.completed,
+          total: value.total,
+        };
+        throw failure;
+      }
       if (value.status === "cancelled")
         throw new DOMException("Cancelled", "AbortError");
       await delay(1000, signal);

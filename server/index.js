@@ -100,6 +100,19 @@ export async function createApp(options = {}) {
       "CREATE INDEX IF NOT EXISTS books_user ON books(user_id); CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires);",
     ].join("\n"),
   );
+  const runColumns = new Set(
+    db
+      .prepare("PRAGMA table_info(ai_runs)")
+      .all()
+      .map((column) => column.name),
+  );
+  for (const [name, definition] of [
+    ["phase", "TEXT NOT NULL DEFAULT 'preparing'"],
+    ["completed_photos", "INTEGER NOT NULL DEFAULT 0"],
+    ["error_code", "TEXT"],
+  ])
+    if (!runColumns.has(name))
+      db.exec(`ALTER TABLE ai_runs ADD COLUMN ${name} ${definition}`);
   let authActive = 0;
   let photoActive = 0;
   let backupActive = false;
@@ -160,7 +173,7 @@ export async function createApp(options = {}) {
       "UPDATE ai_budgets SET neurons=neurons+reserved,reserved=0 WHERE reserved>0",
     );
     db.prepare(
-      "UPDATE ai_runs SET status='interrupted',ended_at=?,charged_neurons=reserved WHERE status='processing'",
+      "UPDATE ai_runs SET status='interrupted',ended_at=?,charged_neurons=reserved,error_code='ai_interrupted' WHERE status='processing'",
     ).run(iso());
   });
   const requestIp = (req) =>
@@ -254,6 +267,9 @@ export async function createApp(options = {}) {
       unknownCost = false,
       jobId,
       status,
+      phase,
+      completedPhotos,
+      errorCode,
     } = {},
   ) {
     if (!reservation) return;
@@ -274,8 +290,17 @@ export async function createApp(options = {}) {
         );
       if (jobId)
         db.prepare(
-          "UPDATE ai_runs SET ended_at=?,status=?,reported_neurons=?,charged_neurons=? WHERE id=?",
-        ).run(iso(), status, Math.max(0, neurons), Math.max(0, charged), jobId);
+          "UPDATE ai_runs SET ended_at=?,status=?,reported_neurons=?,charged_neurons=?,phase=?,completed_photos=?,error_code=? WHERE id=?",
+        ).run(
+          iso(),
+          status,
+          Math.max(0, neurons),
+          Math.max(0, charged),
+          phase || status,
+          completedPhotos || 0,
+          errorCode || null,
+          jobId,
+        );
     });
   }
   const ai = createAiJobs({
@@ -321,6 +346,10 @@ export async function createApp(options = {}) {
     },
     budgetReserve: reserveAiBudget,
     budgetFinish: finishAiBudget,
+    jobProgress: (id, phase, completed) =>
+      db
+        .prepare("UPDATE ai_runs SET phase=?,completed_photos=? WHERE id=?")
+        .run(phase, completed, id),
   });
   function userSession(req) {
     const cookie = (req.headers.cookie || "")
@@ -711,6 +740,9 @@ export async function createApp(options = {}) {
                 pageCount: run.page_count,
                 cachedPhotos: run.cached_photos,
                 status: run.status,
+                phase: run.phase,
+                completedPhotos: run.completed_photos,
+                errorCode: run.error_code,
                 neurons: run.charged_neurons,
                 reportedNeurons: run.reported_neurons,
                 estimated:

@@ -175,6 +175,27 @@ body {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+.ai-run-error {
+  display: block;
+  margin-top: 4px;
+  max-width: 200px;
+  color: #984d3c;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ai-error-details {
+  margin: 10px 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.ai-error-details summary {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ai-error-details code {
+  overflow-wrap: anywhere;
+}
 .ai-usage-limit {
   color: #984d3c;
   line-height: 1.6;

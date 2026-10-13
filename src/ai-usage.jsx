@@ -135,7 +135,17 @@ export function AdminAiUsage({ t, language }) {
                       <td>{time(run.startedAt)}</td>
                       <td>{run.photoCount}</td>
                       <td>{run.cachedPhotos}</td>
-                      <td>{statuses[run.status] || run.status}</td>
+                      <td>
+                        {statuses[run.status] || run.status}
+                        {run.errorCode && (
+                          <small className="ai-run-error">
+                            {run.errorCode}
+                            <br />
+                            {run.completedPhotos || 0}/{run.photoCount} ·{" "}
+                            {run.phase}
+                          </small>
+                        )}
+                      </td>
                       <td>
                         {run.status === "processing"
                           ? "—"
