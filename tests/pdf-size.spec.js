@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, cloudSnapshot } from "./fixtures";
 import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
 import { newBook } from "../src/model.js";
 import sharp from "sharp";
@@ -25,13 +25,7 @@ async function photograph() {
   }
   return sharp(data, { raw: info }).jpeg({ quality: 95 }).toBuffer();
 }
-const project = async (page) => {
-  const event = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Download project", exact: true })
-    .click();
-  return JSON.parse(await fs.readFile(await (await event).path(), "utf8"));
-};
+const project = cloudSnapshot;
 const jpegImages = (doc) =>
   doc.context
     .enumerateIndirectObjects()

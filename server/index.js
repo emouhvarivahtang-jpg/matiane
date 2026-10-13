@@ -4,7 +4,6 @@ import {
   randomBytes,
   randomUUID,
   createHash,
-  createHmac,
   scrypt,
   timingSafeEqual,
 } from "node:crypto";
@@ -194,7 +193,6 @@ export async function createApp(options = {}) {
       row && row.expires > now ? row.expires : now + seconds * 1000,
     );
   }
-  const aiGuestSecret = randomBytes(32);
   // No application neuron ceiling by default. Cloudflare enforces its own plan.
   const configuredAiLimit = Number(
     options.aiDailyNeurons ?? process.env.MATIANE_AI_DAILY_NEURONS,
@@ -217,45 +215,6 @@ export async function createApp(options = {}) {
     trustProxy
       ? String(req.headers["x-real-ip"] || req.socket.remoteAddress)
       : req.socket.remoteAddress;
-  const aiGuestOwner = (req) => "guest:" + hash(requestIp(req));
-  function aiGuestToken(req) {
-    const value = Buffer.from(
-      JSON.stringify({
-        owner: aiGuestOwner(req),
-        expires: Date.now() + 3600_000,
-        nonce: randomBytes(12).toString("hex"),
-      }),
-    ).toString("base64url");
-    return (
-      value +
-      "." +
-      createHmac("sha256", aiGuestSecret).update(value).digest("base64url")
-    );
-  }
-  function validateAiGuest(req) {
-    const token = req.headers["x-matiane-ai-guest"];
-    if (typeof token !== "string" || token.length > 512)
-      fail(403, "ai_guest_token_required");
-    const [value, signature, extra] = token.split(".");
-    if (
-      !value ||
-      !signature ||
-      extra ||
-      !same(
-        signature,
-        createHmac("sha256", aiGuestSecret).update(value).digest("base64url"),
-      )
-    )
-      fail(403, "ai_guest_token_required");
-    try {
-      const parsed = JSON.parse(Buffer.from(value, "base64url").toString());
-      if (parsed.owner !== aiGuestOwner(req) || parsed.expires < Date.now())
-        fail(403, "ai_guest_token_required");
-    } catch {
-      fail(403, "ai_guest_token_required");
-    }
-    return aiGuestOwner(req);
-  }
   function reserveAiBudget(owner, photoCount, neurons, run) {
     return transaction(() => {
       const day = iso().slice(0, 10);
@@ -270,7 +229,7 @@ export async function createApp(options = {}) {
         }
         return row;
       });
-      const perOwner = owner.startsWith("guest:") ? 200 : 400;
+      const perOwner = 400;
       if (rows[0].photos + photoCount > perOwner)
         throw new AiError("ai_daily_limit", 429);
       if (
@@ -587,20 +546,18 @@ export async function createApp(options = {}) {
       if (route === "/api/ai/session" && req.method === "GET") {
         if (req.headers["x-matiane-client"] !== "studio")
           fail(403, "forbidden_origin");
+        requireSession(req);
         consumeRate("ai-session:" + requestIp(req), 60, 3600);
         return respond(res, 200, {
           available: ai.available,
-          guestToken: aiGuestToken(req),
           maxPhotos: 200,
           maxImageSide: 640,
         });
       }
       if (route === "/api/ai/assemble" && req.method === "POST") {
-        const session = userSession(req);
+        const session = requireSession(req);
         mutation(req, session);
-        const owner = session
-          ? "user:" + session.user_id
-          : validateAiGuest(req);
+        const owner = "user:" + session.user_id;
         consumeRate("ai-start-ip:" + requestIp(req), 12, 3600);
         const input = await body(req, 32 * 1024 * 1024);
         if (Array.isArray(input?.photos))
@@ -621,8 +578,8 @@ export async function createApp(options = {}) {
       }
       const aiMatch = route.match(/^\/api\/ai\/jobs\/([a-f0-9-]{36})$/);
       if (aiMatch && ["GET", "DELETE"].includes(req.method)) {
-        const session = userSession(req);
-        const owner = session ? "user:" + session.user_id : null;
+        const session = requireSession(req);
+        const owner = "user:" + session.user_id;
         if (req.method === "DELETE") mutation(req, session);
         const token = req.headers["x-matiane-ai-token"];
         return respond(

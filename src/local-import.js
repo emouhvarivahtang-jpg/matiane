@@ -1,50 +1,94 @@
 import { CloudWriter, api, ApiError } from "./api";
 import {
-  localListBooks,
+  legacyBooks,
+  legacyId,
   localLoadBook,
-  localSaveBook,
   localDeleteBook,
+  removeLegacyProject,
 } from "./model";
 
-// Keep the guest original until both the server copy and its local link are saved.
-// A stable request key lets this resume safely after a disconnect or browser restart.
+// One-way migration. A lost response or failed upload leaves the original intact.
 export async function importGuestBooks(
   owner,
   { onProgress = () => {}, onSaved = () => {} } = {},
 ) {
   if (!owner || owner === "guest") throw new Error("An account is required");
-  const guests = await localListBooks("guest");
+  const records = await legacyBooks(owner);
   const saved = new Map(),
     errors = [];
   let done = 0;
-  onProgress({ done, total: guests.length });
-  for (const guest of guests) {
+  onProgress({ done, total: records.length });
+  for (const record of records) {
     try {
-      const source = await localLoadBook(guest.id, "guest");
-      if (!source) continue;
-      const account = await localLoadBook(guest.id, owner);
+      const source =
+        record.owner === "legacy"
+          ? record
+          : await localLoadBook(record.id, record.owner);
+      if (!source) {
+        done++;
+        continue;
+      }
       let snapshot = source.book;
-      let info = account?.cloud?.id
-        ? { id: account.cloud.id, revision: account.cloud.revision }
-        : null;
-      if (info && account.updatedAt >= source.updatedAt) {
-        snapshot = account.book;
-        // An older guest draft may remain from an earlier manual save. Preserve the account's latest book.
-        if (!account.cloud.pending) {
+      let info =
+        source.owner === owner && source.cloud?.id
+          ? { id: source.cloud.id, revision: source.cloud.revision }
+          : null;
+      if (info && !source.cloud.pending) {
+        try {
           const remote = await api("/books/" + info.id);
           info = { id: remote.id, revision: remote.revision };
-        } else info = await new CloudWriter(info).save(snapshot);
-      } else info = await new CloudWriter(info).save(snapshot);
-      await localSaveBook(snapshot, owner, { ...info, pending: false });
-      if (!(await localDeleteBook(guest.id, "guest", source.updatedAt)))
+        } catch (error) {
+          if (error.status !== 404) throw error;
+          // Saved mirrors must not resurrect deliberately deleted cloud books.
+          info = null;
+        }
+      } else {
+        const newerAccount = records.find(
+          (item) =>
+            item.owner === owner &&
+            item.id === source.id &&
+            item.updatedAt >= source.updatedAt,
+        );
+        if (source.owner === "guest" && newerAccount && saved.has(source.id))
+          info = saved.get(source.id);
+        else {
+          try {
+            info = await new CloudWriter(info).save(snapshot);
+          } catch (error) {
+            if (error.code !== "version_conflict") throw error;
+            snapshot = {
+              ...snapshot,
+              id: legacyId(
+                source.owner + ":" + source.id + ":" + source.updatedAt,
+              ),
+              title: (
+                snapshot.title +
+                " · " +
+                ({ ru: "Восстановлено", ka: "აღდგენილი", en: "Recovered" }[
+                  snapshot.language
+                ] || "Recovered")
+              ).slice(0, 100),
+            };
+            info = await new CloudWriter().save(snapshot);
+          }
+        }
+      }
+      if (source.owner === "legacy") await removeLegacyProject(source.raw);
+      else if (
+        !(await localDeleteBook(source.id, source.owner, source.updatedAt))
+      )
         throw new ApiError("version_conflict", 409);
-      saved.set(guest.id, info);
-      onSaved(snapshot, info);
+      if (info) {
+        saved.set(source.id, info);
+        onSaved(snapshot, info);
+      }
       done++;
     } catch (error) {
-      errors.push({ id: guest.id, error });
+      errors.push({ id: record.id, error });
     }
-    onProgress({ done, total: guests.length });
+    onProgress({ done, total: records.length });
   }
-  return { saved, errors, total: guests.length };
+  if (!errors.length && records.legacyBackup)
+    await removeLegacyProject(records.legacyBackup);
+  return { saved, errors, total: records.length };
 }

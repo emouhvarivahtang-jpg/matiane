@@ -110,6 +110,7 @@ export class CloudWriter {
             });
             this.info = { id: saved.id, revision: saved.revision };
           }
+          this.savedBook = payload;
           return this.info;
         } catch (e) {
           if (e.code === "version_conflict") {

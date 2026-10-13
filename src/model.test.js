@@ -8,6 +8,7 @@ import {
   resizeBook,
   reorderPage,
   deletePage,
+  deletePages,
   forkBook,
   slots,
   imageRect,
@@ -187,5 +188,20 @@ describe("photo crop and print warnings", () => {
         expect(s.x + s.w).toBeLessThanOrEqual(148);
         expect(s.y + s.h).toBeLessThanOrEqual(210);
       }
+  });
+});
+
+describe("batch deletion", () => {
+  it("removes arbitrary unique inside pages, retains styles, covers and photos, and fills the chosen volume with blanks", () => {
+    const book = demoBook();
+    const result = deletePages(book, [2, 4, 4, 0, 41, -1]);
+    expect(result.pages).toHaveLength(42);
+    expect(result.pages[2]).toEqual(book.pages[3]);
+    expect(result.pages[3]).toEqual(book.pages[5]);
+    expect(result.pages[0]).toEqual(book.pages[0]);
+    expect(result.pages.at(-1)).toEqual(book.pages.at(-1));
+    expect(result.photos).toBe(book.photos);
+    expect(result.pages.slice(-3,-1).every((page) => !page.caption && page.photos.every((id) => !id))).toBe(true);
+    expect(deletePages(book, [0, -1, 41])).toBe(book);
   });
 });

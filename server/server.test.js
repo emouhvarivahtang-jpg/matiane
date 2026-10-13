@@ -25,14 +25,16 @@ async function setup(t, extra = {}) {
     return "http://127.0.0.1:" + app.server.address().port;
   }
   let base = await start();
+  let aiUser = null;
   t.after(async () => {
     await app.close();
     await fs.rm(dir, { recursive: true, force: true });
   });
   async function request(
     route,
-    { method = "GET", body, user, headers = {} } = {},
+    { method = "GET", body, user, headers = {}, anonymous = false } = {},
   ) {
+    if (route.startsWith("/ai/") && !anonymous) user ??= aiUser;
     const h = { Origin: origin, "X-Matiane-Client": "studio" };
     if (user) {
       h.Cookie = user.cookie;
@@ -78,6 +80,12 @@ async function setup(t, extra = {}) {
       return app;
     },
     dir,
+    get aiUser() {
+      return aiUser;
+    },
+    setAiUser(value) {
+      aiUser = value;
+    },
     request,
     register,
     restart: async () => {
@@ -201,6 +209,7 @@ test("74-photo books retry a truncated analysis, use short model aliases and pre
       image: "data:image/jpeg;base64," + bytes.toString("base64"),
     });
   }
+  f.setAiUser(await f.register("ai-1@example.invalid"));
   const session = await f.request("/ai/session"),
     job = await f.request("/ai/assemble", {
       method: "POST",
@@ -249,6 +258,7 @@ test("permanent malformed analysis records its stage and progress and refunds th
       return { content: '{"description":', neurons: 2 };
     },
   });
+  f.setAiUser(await f.register("ai-2@example.invalid"));
   const admin = await f.register("diagnostic@example.invalid"),
     session = await f.request("/ai/session");
   const job = await f.request("/ai/assemble", {
@@ -279,6 +289,7 @@ test("final planning connection failure still creates an editable layout from co
       return aiResult(kind, payload);
     },
   });
+  f.setAiUser(await f.register("ai-3@example.invalid"));
   const session = await f.request("/ai/session"),
     photo = await aiPhoto();
   const job = await f.request("/ai/assemble", {
@@ -343,6 +354,7 @@ test("AI usage is administrator-only and reports spent, reserved, cached and dai
   assert.equal(empty.data.cloudflareFreeDaily, 10000);
   assert.ok(empty.data.resetsAt.endsWith("T00:00:00.000Z"));
   assert.equal(empty.headers.get("cache-control"), "no-store");
+  f.setAiUser(await f.register("ai-4@example.invalid"));
   const guest = await f.request("/ai/session"),
     headers = { "X-Matiane-AI-Guest": guest.data.guestToken };
   const input = { language: "en", pageCount: 40, photos: [await aiPhoto()] };
@@ -443,7 +455,7 @@ test("usage converts interrupted reservations into estimates and releases active
   assert.equal(usage.recent[0].reportedNeurons, 0);
   assert.equal(usage.recent[0].estimated, true);
 });
-test("guest AI assembly requires its capability, reduces images, returns only analyses and plans, and reuses owner-scoped cache", async (t) => {
+test("account AI assembly requires authentication, reduces images, returns only analyses and plans, and reuses owner-scoped cache", async (t) => {
   const calls = [];
   const f = await setup(t, {
     aiProvider: async ({ kind, payload }) => {
@@ -462,8 +474,9 @@ test("guest AI assembly requires its capability, reduces images, returns only an
   const input = { language: "ru", pageCount: 40, photos: [image] };
   assert.equal(
     (await f.request("/ai/assemble", { method: "POST", body: input })).status,
-    403,
+    401,
   );
+  f.setAiUser(await f.register("ai-7@example.invalid"));
   const session = await f.request("/ai/session");
   assert.equal(session.data.available, true);
   const headers = { "X-Matiane-AI-Guest": session.data.guestToken };
@@ -591,7 +604,7 @@ test("AI jobs enforce account ownership, CSRF, origin and private photo referenc
   const headers = { "X-Matiane-AI-Token": job.data.token };
   assert.equal(
     (await f.request("/ai/jobs/" + job.data.id, { headers })).status,
-    404,
+    401,
   );
   assert.equal(
     (await f.request("/ai/jobs/" + job.data.id, { user: stranger, headers }))
@@ -689,6 +702,7 @@ test("cached books can be assembled again at the photo allowance and all 200 pho
         ).toString("base64"),
     })),
   );
+  f.setAiUser(await f.register("ai-10@example.invalid"));
   const session = await f.request("/ai/session");
   const headers = { "X-Matiane-AI-Guest": session.data.guestToken };
   const input = { language: "en", pageCount: 40, photos };
@@ -707,6 +721,9 @@ test("cached books can be assembled again at the photo allowance and all 200 pho
     photos.map((photo) => photo.id),
   );
   assert.equal(analysisCalls, 200);
+  const budgets = new DatabaseSync(path.join(f.dir, "matiane.sqlite"));
+  budgets.prepare("UPDATE ai_budgets SET photos=400").run();
+  budgets.close();
   const second = await f.request("/ai/assemble", {
     method: "POST",
     body: input,
@@ -743,6 +760,7 @@ test("cancelled AI jobs discard late results, free concurrency and retain persis
       return aiResult(kind, payload);
     },
   });
+  f.setAiUser(await f.register("ai-11@example.invalid"));
   const session = await f.request("/ai/session");
   const headers = { "X-Matiane-AI-Guest": session.data.guestToken };
   const input = { language: "en", pageCount: 40, photos: [await aiPhoto()] };
@@ -791,6 +809,7 @@ test("invalid AI provider plans recover from completed analyses and unavailable 
             },
           },
   });
+  f.setAiUser(await f.register("ai-12@example.invalid"));
   const session = await f.request("/ai/session");
   const job = await f.request("/ai/assemble", {
     method: "POST",
@@ -806,6 +825,7 @@ test("invalid AI provider plans recover from completed analyses and unavailable 
     cloudflareAccountId: "",
     cloudflareToken: "",
   });
+  absent.setAiUser(await absent.register("absent@example.invalid"));
   const absentSession = await absent.request("/ai/session");
   assert.equal(absentSession.data.available, false);
   const unavailable = await absent.request("/ai/assemble", {
@@ -1074,8 +1094,14 @@ test("screen previews are smaller, persist across restart, revalidate ownership 
     other = await f.register("preview-other@example.invalid");
   const original = await sharp({
     create: { width: 3200, height: 2400, channels: 3, background: "#7a937f" },
-  }).jpeg({ quality: 98 }).toBuffer();
-  const uploaded = await f.request("/photos", { method: "POST", body: original, user: owner });
+  })
+    .jpeg({ quality: 98 })
+    .toBuffer();
+  const uploaded = await f.request("/photos", {
+    method: "POST",
+    body: original,
+    user: owner,
+  });
   assert.equal(uploaded.status, 201);
   const route = uploaded.data.src.slice(4);
   const [first, simultaneous] = await Promise.all([
@@ -1091,10 +1117,23 @@ test("screen previews are smaller, persist across restart, revalidate ownership 
   assert.ok(first.data.length < original.length / 2);
   assert.equal(first.headers.get("cache-control"), "private, no-cache");
   const headers = { "If-None-Match": first.headers.get("etag") };
-  assert.equal((await f.request(route + "?preview=1", { user: owner, headers })).status, 304);
-  assert.equal((await f.request(route + "?preview=1", { user: other, headers })).status, 404);
-  assert.equal((await f.request(route + "?preview=1", { headers })).status, 401);
-  const onDisk = path.join(f.dir, "photos", route.split("/").pop() + ".screen-v1.webp");
+  assert.equal(
+    (await f.request(route + "?preview=1", { user: owner, headers })).status,
+    304,
+  );
+  assert.equal(
+    (await f.request(route + "?preview=1", { user: other, headers })).status,
+    404,
+  );
+  assert.equal(
+    (await f.request(route + "?preview=1", { headers })).status,
+    401,
+  );
+  const onDisk = path.join(
+    f.dir,
+    "photos",
+    route.split("/").pop() + ".screen-v1.webp",
+  );
   const before = (await fs.stat(onDisk)).mtimeMs;
   await f.restart();
   const cached = await f.request(route + "?preview=1", { user: owner });
@@ -1104,9 +1143,15 @@ test("screen previews are smaller, persist across restart, revalidate ownership 
   assert.deepEqual(print.data, original);
   assert.notEqual(print.headers.get("etag"), first.headers.get("etag"));
   const thumb = await f.request(route + "?thumbnail=1", { user: owner });
-  assert.equal((await f.request(route + "?thumbnail=1", {
-    user: owner, headers: { "If-None-Match": thumb.headers.get("etag") },
-  })).status, 304);
+  assert.equal(
+    (
+      await f.request(route + "?thumbnail=1", {
+        user: owner,
+        headers: { "If-None-Match": thumb.headers.get("etag") },
+      })
+    ).status,
+    304,
+  );
 });
 test("private images, immutable versions, concurrent edits and complete deletion", async (t) => {
   const f = await setup(t),

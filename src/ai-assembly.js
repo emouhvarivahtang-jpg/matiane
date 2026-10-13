@@ -42,6 +42,16 @@ function caption(value, language) {
   if (language === "ka" && !/[\u10a0-\u10ff\u1c90-\u1cbf]/u.test(clean))
     return "";
   if (language === "ru" && !/[А-Яа-яЁё]/u.test(clean)) return "";
+  if (
+    /^(?:a |the )?(?:person|man|woman|child|people)\b.*\b(?:works?|working|sits?|sitting|stands?|standing|holds?|holding|wears?)\b/i.test(
+      clean,
+    ) ||
+    /^(?:человек|мужчина|женщина|девушка|парень|реб[её]нок|люди)(?:\s|$).*(?:работает|сидит|стоит|лежит|держит|одет)/iu.test(
+      clean,
+    ) ||
+    /^(?:ადამიანი|კაცი|ქალი|ბავშვი).*(?:მუშაობს|ზის|დგას|წევს)/u.test(clean)
+  )
+    return "";
   return clean;
 }
 const clamp = (v, low, high) => Math.max(low, Math.min(high, v));
@@ -229,9 +239,17 @@ export function assembleBook(original, analysis = [], plan = {}) {
     if (groups.length > count) groups = rebalance(groups, count, photos.size);
   }
   const pages = book.pages.map((p) => ({ ...p }));
-  let previous = "",
-    captionCount = 0;
-  const maximumCaptions = Math.max(1, Math.ceil(groups.length * 0.65));
+  let previous = "";
+  const captionCount = Math.round(groups.length * 0.3);
+  const captioned = new Set(
+    Array.from({ length: captionCount }, (_, i) =>
+      Math.floor((i * groups.length) / captionCount),
+    ),
+  );
+  const normalise = (text) =>
+    String(text || "")
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]/gu, "");
   for (let i = 0; i < count; i++) {
     const group = groups[i];
     if (!group) {
@@ -240,7 +258,8 @@ export function assembleBook(original, analysis = [], plan = {}) {
     }
     const images = group.photoIds.map((id) => photos.get(id));
     const size = pageSize(book, pages[i + 1]);
-    const layout = layoutFor(group, images, analyses, size, i, previous);
+    let layout = layoutFor(group, images, analyses, size, i, previous);
+    if (captioned.has(i) && layout === "full") layout = "editorial";
     previous = layout;
     const frames = slots(layout, size);
     const photoIds = Array(CAPACITY[layout]).fill(null);
@@ -252,14 +271,19 @@ export function assembleBook(original, analysis = [], plan = {}) {
     images.forEach((p, at) => {
       photoIds[at] = p.id;
     });
-    let words = caption(group.caption, book.language);
-    if (!Object.hasOwn(group, "caption") && i % 3 === 0)
+    let words = "";
+    if (captioned.has(i)) {
+      const descriptions = new Set(
+        images.map((image) => normalise(analyses.get(image.id)?.description)),
+      );
+      // Vision descriptions and cached analysis captions are not printed text.
+      const candidates = [group.caption]
+        .map((value) => caption(value, book.language))
+        .filter((value) => value && !descriptions.has(normalise(value)));
       words =
-        caption(analyses.get(images[0].id)?.caption, book.language) ||
+        candidates[0] ||
         (WARM[book.language] || WARM.en)[Math.floor(i / 3) % 4];
-    if (layout === "full") words = "";
-    if (words && captionCount >= maximumCaptions) words = "";
-    if (words) captionCount++;
+    }
     pages[i + 1] = {
       ...newPage(),
       id: pages[i + 1].id,

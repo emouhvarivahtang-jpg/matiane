@@ -1,6 +1,17 @@
 import { translations } from "./i18n";
 const extra = {
   en: {
+    selectPages: "Select pages",
+    cancelSelection: "Done selecting",
+    selectedPages: "Selected: {count}",
+    selectPage: "Select page {page}",
+    selectAll: "Select all",
+    clearSelection: "Clear selection",
+    selectRangeHint: "Shift + click selects a range.",
+    deleteSelected: "Delete ({count})",
+    deletePagesConfirm:
+      "Delete {count} selected pages? Following pages move forward and empty pages are added at the end. You can undo this.",
+    insertBefore: "Insert before {page}",
     aiErrorDetails: "Error details",
     aiInvalidResponse:
       "The AI could not return a complete answer. Your layout is unchanged; please try again.",
@@ -135,7 +146,7 @@ const extra = {
     openLatest: "Open latest version",
     saveCopy: "Save as a new book",
     shrinkConfirm:
-      "Reducing pages removes the last inside pages. A separate backup copy will be saved first. Continue?",
+      "Reducing pages removes the last inside pages. A server version will be saved first. Continue?",
     backup: "Backup before reducing pages",
     moveTo: "Move selected page to",
     coverLocked: "Covers keep their positions",
@@ -144,11 +155,13 @@ const extra = {
     interior: "Inside pages only",
     covers: "Covers only",
     privacyCloud: "Account photos are private and saved on the server.",
-    signInHint: "Sign in to save multiple books and versions online.",
+    signInHint:
+      "Sign in or create an account to make photobooks. Your books and versions are saved in the cloud.",
     secureVersion: "Open secure studio",
     transfer: "Move this book to secure studio",
     transferHint: "Your original draft stays on this device.",
-    transferFailed: "Open the secure studio and import the downloaded project.",
+    transferFailed:
+      "Open the secure studio, sign in and retry the transfer. Your old local books are still intact.",
     authError:
       "Could not sign in. Check your email, password or recovery code.",
     error: "Something went wrong. Please try again.",
@@ -185,6 +198,17 @@ const extra = {
     saved: "Saved on this device",
   },
   ru: {
+    selectPages: "Выбрать страницы",
+    cancelSelection: "Завершить выбор",
+    selectedPages: "Выбрано: {count}",
+    selectPage: "Выбрать страницу {page}",
+    selectAll: "Выбрать все",
+    clearSelection: "Снять выбор",
+    selectRangeHint: "Shift + клик выбирает диапазон.",
+    deleteSelected: "Удалить ({count})",
+    deletePagesConfirm:
+      "Удалить выбранные страницы ({count})? Следующие сдвинутся, а в конце появятся пустые. Действие можно отменить.",
+    insertBefore: "Вставить перед {page}",
     aiErrorDetails: "Подробности ошибки",
     aiInvalidResponse:
       "ИИ не смог вернуть полный ответ. Макет не изменился; попробуйте ещё раз.",
@@ -319,7 +343,7 @@ const extra = {
     openLatest: "Открыть последнюю",
     saveCopy: "Сохранить новой книгой",
     shrinkConfirm:
-      "При уменьшении исчезнут последние внутренние страницы. Сначала сохраним отдельную резервную копию. Продолжить?",
+      "При уменьшении исчезнут последние внутренние страницы. Сначала сохраним версию на сервере. Продолжить?",
     backup: "Копия перед уменьшением страниц",
     moveTo: "Переместить выбранную страницу на место",
     coverLocked: "Позиции обложек закреплены",
@@ -329,7 +353,8 @@ const extra = {
     covers: "Только обложки",
     privacyCloud:
       "Фотографии аккаунта сохраняются на сервере и доступны только вам.",
-    signInHint: "Войдите, чтобы сохранять книги и версии онлайн.",
+    signInHint:
+      "Войдите или зарегистрируйтесь, чтобы создавать фотокниги. Книги и версии сохраняются в облаке.",
     secureVersion: "Открыть защищённую студию",
     transfer: "Перенести книгу в защищённую студию",
     transferHint: "Исходный черновик останется на этом устройстве.",
@@ -459,6 +484,17 @@ const extra = {
       "Примеры нужны для знакомства. Для печати используйте свои фото высокого разрешения.",
   },
   ka: {
+    selectPages: "გვერდების არჩევა",
+    cancelSelection: "არჩევის დასრულება",
+    selectedPages: "არჩეულია: {count}",
+    selectPage: "აირჩიეთ გვერდი {page}",
+    selectAll: "ყველას არჩევა",
+    clearSelection: "არჩევის გასუფთავება",
+    selectRangeHint: "Shift + დაწკაპუნება ირჩევს დიაპაზონს.",
+    deleteSelected: "წაშლა ({count})",
+    deletePagesConfirm:
+      "წაიშალოს {count} არჩეული გვერდი? მომდევნო გვერდები წინ გადმოვა და ბოლოში ცარიელი გვერდები დაემატება. მოქმედება შეგიძლიათ გააუქმოთ.",
+    insertBefore: "ჩასმა {page}-ის წინ",
     aiErrorDetails: "შეცდომის დეტალები",
     aiInvalidResponse:
       "AI-მ სრული პასუხი ვერ დააბრუნა. მაკეტი არ შეცვლილა; სცადეთ ხელახლა.",
@@ -591,7 +627,7 @@ const extra = {
     openLatest: "ბოლო ვერსიის გახსნა",
     saveCopy: "ახალ წიგნად შენახვა",
     shrinkConfirm:
-      "შემცირებისას ბოლო შიდა გვერდები წაიშლება. ჯერ ცალკე სარეზერვო ასლი შეინახება. გაგრძელდეს?",
+      "შემცირებისას ბოლო შიდა გვერდები წაიშლება. ჯერ სერვერზე ვერსია შეინახება. გაგრძელდეს?",
     backup: "ასლი გვერდების შემცირებამდე",
     moveTo: "არჩეული გვერდის გადატანა ნომერზე",
     coverLocked: "ყდების მდებარეობა უცვლელია",
@@ -600,7 +636,8 @@ const extra = {
     interior: "მხოლოდ შიდა გვერდები",
     covers: "მხოლოდ ყდები",
     privacyCloud: "ანგარიშის ფოტოები სერვერზე პირადად ინახება.",
-    signInHint: "შედით წიგნებისა და ვერსიების ონლაინ შესანახად.",
+    signInHint:
+      "ფოტოწიგნების შესაქმნელად შედით ან დარეგისტრირდით. წიგნები და ვერსიები ღრუბელში ინახება.",
     secureVersion: "დაცული სტუდიის გახსნა",
     transfer: "წიგნის გადატანა დაცულ სტუდიაში",
     transferHint: "ორიგინალი მონახაზი მოწყობილობაზე დარჩება.",
@@ -652,7 +689,7 @@ const updated = {
     aiPlanning: "AI is arranging your book…",
     aiSaving: "Saving the original book…",
     aiCancelling: "Cancelling assembly…",
-    aiDone: "Your book is ready. The original is saved as a backup.",
+    aiDone: "Your book is ready. The original layout is saved in version history.",
     aiCancelled: "Assembly cancelled. Your book has not changed.",
     aiFailed: "Could not assemble the book. Your current layout is unchanged.",
     aiRetry: "Try again",
@@ -700,7 +737,7 @@ const updated = {
     aiPlanning: "ИИ собирает книгу…",
     aiSaving: "Сохраняем исходную книгу…",
     aiCancelling: "Отменяем сборку…",
-    aiDone: "Книга собрана. Исходный макет сохранён в резервной копии.",
+    aiDone: "Книга собрана. Исходный макет сохранён в истории версий.",
     aiCancelled: "Сборка отменена. Макет не изменился.",
     aiFailed: "Не удалось собрать книгу. Ваш текущий макет не изменился.",
     aiRetry: "Попробовать снова",
@@ -748,7 +785,7 @@ const updated = {
     aiPlanning: "AI წიგნს აწყობს…",
     aiSaving: "საწყისი წიგნის შენახვა…",
     aiCancelling: "აწყობის გაუქმება…",
-    aiDone: "წიგნი მზადაა. საწყისი განლაგება სარეზერვო ასლად შეინახა.",
+    aiDone: "წიგნი მზადაა. საწყისი განლაგება ვერსიების ისტორიაში ინახება.",
     aiCancelled: "აწყობა გაუქმდა. განლაგება არ შეცვლილა.",
     aiFailed: "წიგნის აწყობა ვერ მოხერხდა. თქვენი განლაგება არ შეცვლილა.",
     aiRetry: "ხელახლა ცდა",

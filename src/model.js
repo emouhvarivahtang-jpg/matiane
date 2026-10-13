@@ -276,12 +276,28 @@ export function reorderPage(book, from, to) {
   return { ...book, pages };
 }
 export function deletePage(book, index) {
-  if (!Number.isInteger(index) || index < 1 || index > book.pageCount)
-    return book;
-  const pages = [...book.pages];
-  pages.splice(index, 1);
-  pages.splice(book.pageCount, 0, newPage());
-  return { ...book, pages };
+  return deletePages(book, [index]);
+}
+export function deletePages(book, indexes) {
+  const removed = new Set(
+    indexes.filter(
+      (index) =>
+        Number.isInteger(index) && index >= 1 && index <= book.pageCount,
+    ),
+  );
+  if (!removed.size) return book;
+  const interior = book.pages
+    .slice(1, -1)
+    .filter((_, index) => !removed.has(index + 1));
+  return {
+    ...book,
+    pages: [
+      book.pages[0],
+      ...interior,
+      ...Array.from({ length: removed.size }, () => newPage()),
+      book.pages.at(-1),
+    ],
+  };
 }
 export function forkBook(book, title = book.title) {
   const photoIds = new Map(book.photos.map((p) => [p.id, uid()]));
@@ -716,21 +732,42 @@ export async function localDeleteBook(id, owner = "guest", expectedUpdatedAt) {
   const db = await database();
   try {
     let deleted = false;
-    await transaction(db, ["books"], "readwrite", (tx) => {
+    await transaction(db, ["books", "photos"], "readwrite", (tx) => {
       const store = tx.objectStore("books"),
         key = owner + ":" + id;
-      if (expectedUpdatedAt === undefined) {
+      const request = store.get(key);
+      request.onsuccess = () => {
+        if (
+          !request.result ||
+          (expectedUpdatedAt !== undefined &&
+            request.result.updatedAt !== expectedUpdatedAt)
+        )
+          return;
         store.delete(key);
         deleted = true;
-      } else {
-        const request = store.get(key);
-        request.onsuccess = () => {
-          if (request.result?.updatedAt === expectedUpdatedAt) {
-            store.delete(key);
-            deleted = true;
-          }
+        const remaining = store.getAll();
+        remaining.onsuccess = () => {
+          const used = new Set(
+            remaining.result
+              .filter((record) => record.owner === owner)
+              .flatMap((record) =>
+                record.book.photos.map((photo) => owner + ":" + photo.id),
+              ),
+          );
+          const photos = tx.objectStore("photos"),
+            keys = photos.getAllKeys();
+          keys.onsuccess = () => {
+            for (const photoKey of keys.result)
+              if (
+                String(photoKey).startsWith(owner + ":") &&
+                !used.has(photoKey)
+              ) {
+                photos.delete(photoKey);
+                knownPhotos.delete(photoKey);
+              }
+          };
         };
-      }
+      };
     });
     return deleted;
   } finally {
@@ -768,4 +805,93 @@ export async function migrateLocalBook() {
     markerDb.close();
   }
   // Keep the original v1 record as a backup, but never recreate it after an account import.
+}
+
+// Only migration reads this database; the editor never writes books to it.
+export async function legacyBooks(owner) {
+  try {
+    if (
+      !indexedDB ||
+      (indexedDB.databases &&
+        !(await indexedDB.databases()).some((db) => db.name === "matiane"))
+    )
+      return [];
+  } catch {
+    return [];
+  }
+  const records = [
+    ...(owner === "guest" ? [] : await localListBooks(owner)),
+    ...(await localListBooks("guest")),
+  ];
+  const db = await database();
+  try {
+    const store = db.transaction("projects").objectStore("projects");
+    const read = (key) =>
+      new Promise((resolve, reject) => {
+        const request = store.get(key);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    const [raw, migrated] = await Promise.all([
+      read("current"),
+      read("legacy-migrated"),
+    ]);
+    records.legacyBackup =
+      raw && (migrated || records.some((record) => record.owner === "guest"))
+        ? raw
+        : null;
+    if (
+      raw &&
+      !migrated &&
+      !records.some((record) => record.owner === "guest")
+    ) {
+      const book = validateBook(raw);
+      book.id = legacyId(JSON.stringify(raw));
+      book.pages = book.pages.map((page, i) => ({
+        ...page,
+        id: book.id + ":" + i,
+      }));
+      records.push({
+        id: book.id,
+        owner: "legacy",
+        book,
+        raw,
+        updatedAt: "legacy-v1",
+      });
+    }
+  } finally {
+    db.close();
+  }
+  return records;
+}
+export function legacyId(value) {
+  const words = [2166136261, 3339675911, 2246822519, 3266489917];
+  for (let i = 0; i < value.length; i++)
+    for (let j = 0; j < words.length; j++)
+      words[j] = Math.imul(words[j] ^ value.charCodeAt(i), 16777619);
+  const hex = words
+    .map((word) => (word >>> 0).toString(16).padStart(8, "0"))
+    .join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+export async function removeLegacyProject(raw) {
+  const db = await database();
+  try {
+    await transaction(db, ["projects"], "readwrite", (tx) => {
+      const store = tx.objectStore("projects"),
+        request = store.get(raw ? "current" : "legacy-migrated");
+      request.onsuccess = () => {
+        if (
+          raw
+            ? JSON.stringify(request.result) === JSON.stringify(raw)
+            : request.result === true
+        ) {
+          store.delete("current");
+          store.delete("legacy-migrated");
+        }
+      };
+    });
+  } finally {
+    db.close();
+  }
 }

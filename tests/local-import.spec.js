@@ -2,12 +2,19 @@ import { test, expect } from "./fixtures";
 import { newBook } from "../src/model.js";
 import fs from "node:fs/promises";
 
+test.use({ signedIn: false });
+
 const password = "Synthetic migration password";
 async function seed(page, books, legacy = null) {
   await page.evaluate(
     async ({ books, legacy }) => {
       const db = await new Promise((resolve, reject) => {
         const r = indexedDB.open("matiane", 2);
+        r.onupgradeneeded = () => {
+          for (const store of ["projects", "books", "photos"])
+            if (!r.result.objectStoreNames.contains(store))
+              r.result.createObjectStore(store);
+        };
         r.onsuccess = () => resolve(r.result);
         r.onerror = () => reject(r.error);
       });
@@ -85,7 +92,7 @@ test("registration imports all closed guest books with photos, layouts and cover
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("button", { name: "New book", exact: true }),
+    page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();
   const first = newBook(40, "Wife's assembled album"),
     second = newBook(60, "Another local story");
@@ -118,7 +125,7 @@ test("registration imports all closed guest books with photos, layouts and cover
     pages: [],
   });
   await page.reload();
-  await expect(page.locator(".local-books .book-card")).toHaveCount(2);
+  await expect(page.locator(".local-books")).toHaveCount(0);
   const email = await register(page);
   try {
     await expect(page.locator(".cloud-books .book-card")).toHaveCount(2, {
@@ -175,17 +182,14 @@ test("registration imports all closed guest books with photos, layouts and cover
     }, target.id);
     await seed(page, [first]);
     await page.reload();
-    await expect(
-      page.getByRole("button", { name: "Retry upload", exact: true }),
-    ).toBeVisible();
-    await page.locator(".local-books .book-card-open").click();
-    await expect(page.locator(".conflict-banner")).toBeVisible({
-      timeout: 12000,
-    });
+    await expect(page.locator(".cloud-books .book-card")).toHaveCount(3);
+    await expect(page.locator(".cloud-books")).toContainText("Recovered");
     await page
-      .getByRole("button", { name: "Open latest version", exact: true })
+      .locator(".cloud-books .book-card-open")
+      .filter({
+        has: page.getByRole("heading", { name: first.title, exact: true }),
+      })
       .click();
-    await expect(page.locator(".conflict-banner")).toHaveCount(0);
     await page.getByRole("button", { name: "Page 4", exact: true }).click();
     await expect(page.locator(".active-leaf .page-caption")).toHaveText(
       "Latest edit from another device",
@@ -200,13 +204,13 @@ test("a lost upload response keeps the local original, and retry creates exactly
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("button", { name: "New book", exact: true }),
+    page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();
   const book = newBook(40, "Resume after connection failure");
   book.pages[4].caption = "Keep my work after a disconnect";
   await seed(page, [book]);
   await page.reload();
-  await expect(page.locator(".local-books .book-card")).toHaveCount(1);
+  await expect(page.locator(".local-books")).toHaveCount(0);
   let lost = false;
   const loseResponse = async (route) => {
     if (route.request().method() === "POST" && !lost) {
@@ -228,7 +232,22 @@ test("a lost upload response keeps the local original, and retry creates exactly
     await expect(
       page.getByRole("button", { name: "Retry upload", exact: true }),
     ).toBeVisible();
-    await expect(page.locator(".local-books .book-card")).toHaveCount(1);
+    expect(
+      await page.evaluate(
+        () =>
+          new Promise((resolve) => {
+            const r = indexedDB.open("matiane", 2);
+            r.onsuccess = () => {
+              const db = r.result;
+              const q = db.transaction("books").objectStore("books").getAll();
+              q.onsuccess = () => {
+                resolve(q.result.length);
+                db.close();
+              };
+            };
+          }),
+      ),
+    ).toBe(1);
     expect((await remoteBooks(page)).length).toBe(1);
     await page.unroute("**/api/books", loseResponse);
     await page
@@ -282,21 +301,21 @@ test("the old IP studio transfers every local book before registration and retai
   }
   await page.goto(old);
   await expect(
-    page.getByRole("button", { name: "New book", exact: true }),
+    page.getByRole("button", { name: "Open secure studio", exact: true }),
   ).toBeVisible();
   const first = newBook(40, "Older IP draft"),
     second = newBook(60, "Second older IP draft");
   first.pages[3].caption = "No rebuilding needed";
   await seed(page, [first, second]);
   await page.reload();
-  await expect(page.locator(".local-books .book-card")).toHaveCount(2);
+  await expect(page.locator(".local-books")).toHaveCount(0);
   const popup = page.waitForEvent("popup");
   await page
     .getByRole("button", { name: "Open secure studio", exact: true })
     .first()
     .click();
   const studio = await popup;
-  await expect(studio.locator(".local-books .book-card")).toHaveCount(2);
+  await expect(studio.locator(".local-books")).toHaveCount(0);
   await expect(studio.getByRole("dialog")).toBeVisible();
   await register(studio);
   try {
@@ -308,9 +327,9 @@ test("the old IP studio transfers every local book before registration and retai
     expect(books.map((b) => b.title).sort()).toEqual(
       [first.title, second.title].sort(),
     );
-    await expect(page.locator(".local-books .book-card")).toHaveCount(2);
+    await expect(page.locator(".local-books")).toHaveCount(0);
     await page.reload();
-    await expect(page.locator(".local-books .book-card")).toHaveCount(2);
+    await expect(page.locator(".local-books")).toHaveCount(0);
   } finally {
     await cleanup(studio);
   }

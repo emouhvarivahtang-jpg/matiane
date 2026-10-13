@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, cloudSnapshot } from "./fixtures";
 import { newBook } from "../src/model.js";
 import fs from "node:fs/promises";
 
@@ -31,6 +31,11 @@ async function seedDraft(page, count = 6) {
   await page.evaluate(async (book) => {
     const db = await new Promise((resolve, reject) => {
       const request = indexedDB.open("matiane", 2);
+      request.onupgradeneeded = () => {
+        for (const store of ["projects", "books", "photos"])
+          if (!request.result.objectStoreNames.contains(store))
+            request.result.createObjectStore(store);
+      };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
@@ -60,20 +65,14 @@ async function seedDraft(page, count = 6) {
     db.close();
   }, book);
   await page.reload();
-  await page.locator(".local-books .book-card-open").click();
+  await page.locator(".cloud-books .book-card-open").click();
   await expect(
     page.getByRole("button", { name: AI_BUTTON, exact: true }),
   ).toBeEnabled();
   return book;
 }
 
-async function project(page) {
-  const downloaded = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Download project", exact: true })
-    .click();
-  return JSON.parse(await fs.readFile(await (await downloaded).path(), "utf8"));
-}
+const project = cloudSnapshot;
 
 function result(photos) {
   return {
@@ -211,7 +210,7 @@ async function mockAI(page, { mode = "success" } = {}) {
   return { calls, state };
 }
 
-test("guest AI assembly uses every image once, keeps covers, makes editable pages and an undoable local backup", async ({
+test("account AI assembly uses every image once, keeps covers, makes editable pages and an recoverable server checkpoint", async ({
   page,
 }) => {
   const errors = [];
@@ -259,38 +258,19 @@ test("guest AI assembly uses every image once, keeps covers, makes editable page
     mock.calls.find((call) => call.path === "/api/ai/assemble").headers[
       "x-matiane-ai-guest"
     ],
-  ).toBe("synthetic-guest-capability");
+  ).toBeUndefined();
   for (const photo of mock.state.input.photos) {
-    expect(photo.image).toMatch(/^data:image\/jpeg;base64,/);
+    expect(photo.src).toMatch(/^\/api\/photos\//);
     expect(Math.max(photo.width, photo.height)).toBeLessThanOrEqual(640);
   }
-  await expect
-    .poll(() =>
-      page.evaluate(
-        (originalId) =>
-          new Promise((resolve) => {
-            const open = indexedDB.open("matiane", 2);
-            open.onsuccess = () => {
-              const db = open.result,
-                request = db.transaction("books").objectStore("books").getAll();
-              request.onsuccess = () => {
-                resolve(
-                  request.result.some(
-                    (record) =>
-                      record.id !== originalId &&
-                      record.book.pages[1]?.caption ===
-                        "My handwritten memory" &&
-                      record.book.cover.spine.caption === "Keep our spine",
-                  ),
-                );
-                db.close();
-              };
-            };
-          }),
-        before.id,
-      ),
-    )
-    .toBe(true);
+  const versions = await page.evaluate(async () => {
+    const id = document.querySelector(".app-shell").dataset.bookId;
+    return (await (await fetch("/api/books/" + id + "/versions")).json())
+      .versions;
+  });
+  expect(
+    versions.some((version) => version.label === "Before AI assembly"),
+  ).toBe(true);
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   expect((await project(page)).pages).toEqual(before.pages);
   await page.getByRole("button", { name: "Redo", exact: true }).click();
@@ -413,6 +393,7 @@ test("signed-in AI assembly saves a recoverable server checkpoint before replaci
 }) => {
   test.setTimeout(60000);
   const mock = await mockAI(page);
+  await page.context().clearCookies();
   await page.goto("/");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page

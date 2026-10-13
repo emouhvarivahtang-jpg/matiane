@@ -58,7 +58,7 @@ async function analysisImage(photo, maxSide, signal) {
 
 export async function buildWithAi(
   book,
-  { signal, onProgress = () => {}, signedIn = false } = {},
+  { signal, onProgress = () => {}, signedIn = true } = {},
 ) {
   let job = null;
   try {
@@ -102,7 +102,6 @@ export async function buildWithAi(
       job = await api("/ai/assemble", {
         method: "POST",
         signal: acknowledgement.signal,
-        headers: { "X-Matiane-AI-Guest": session.guestToken },
         body: {
           language: book.language,
           title: book.title,

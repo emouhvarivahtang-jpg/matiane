@@ -31,17 +31,13 @@ import {
   spreads,
   resizeBook,
   reorderPage,
-  deletePage,
+  deletePages,
   forkBook,
-  uid,
   validateBook,
   portableBook,
   issues,
-  localSaveBook,
   localLoadBook,
-  localListBooks,
-  localDeleteBook,
-  migrateLocalBook,
+  legacyBooks,
 } from "./model";
 import { messages, errorMessage } from "./ui-text";
 import { api, CloudWriter } from "./api";
@@ -88,16 +84,20 @@ function LayoutIcon({ layout }) {
   );
 }
 function App() {
-  const [language, setLanguage] = useState(
-    () =>
-      localStorage.getItem("matiane-language") ||
-      (/^ru/.test(navigator.language) ? "ru" : "en"),
-  );
+  const [language, setLanguage] = useState(() => {
+    try {
+      return (
+        localStorage.getItem("matiane-language") ||
+        (/^ru/.test(navigator.language) ? "ru" : "en")
+      );
+    } catch {
+      return /^ru/.test(navigator.language) ? "ru" : "en";
+    }
+  });
   const t = messages[language] || messages.en;
   const [ready, setReady] = useState(false),
     [user, setUser] = useState(null),
     [book, setBook] = useState(null),
-    [records, setRecords] = useState([]),
     [cloudBooks, setCloudBooks] = useState([]),
     [adminBooks, setAdminBooks] = useState([]),
     [adminTotal, setAdminTotal] = useState(0),
@@ -116,6 +116,11 @@ function App() {
       failed: false,
     }),
     [uploading, setUploading] = useState(false);
+  const [selectedPages, setSelectedPages] = useState(new Set()),
+    [selectingPages, setSelectingPages] = useState(false),
+    [dropPosition, setDropPosition] = useState(null);
+  const draggedPage = useRef(null),
+    selectionAnchor = useRef(null);
   const [mobilePanel, setMobilePanel] = useState(null),
     [ai, setAi] = useState({
       running: false,
@@ -127,7 +132,6 @@ function App() {
     });
   const [history, setHistory] = useState([]),
     [future, setFuture] = useState([]),
-    [localStatus, setLocalStatus] = useState("saved"),
     [cloudStatus, setCloudStatus] = useState(""),
     [cloudError, setCloudError] = useState(null);
   const [unusedOnly, setUnusedOnly] = useState(false),
@@ -146,23 +150,17 @@ function App() {
     writer = useRef(null),
     current = useRef(book),
     currentUser = useRef(user),
-    localQueue = useRef(Promise.resolve()),
+    incomingBooks = useRef([]),
     importing = useRef(false),
     aiController = useRef(null),
     activeToken = useRef(0);
   current.current = book;
   currentUser.current = user;
-  const owner = user?.id || "guest";
   const initial = useRef(false);
   useEffect(() => {
     if (initial.current) return;
     initial.current = true;
     (async () => {
-      try {
-        await migrateLocalBook();
-      } catch {
-        setToast(t.storageError);
-      }
       try {
         if (accountsAvailable) {
           const session = await api("/session");
@@ -174,8 +172,6 @@ function App() {
   }, []);
   async function refresh(account = currentUser.current) {
     try {
-      const local = await localListBooks(account?.id || "guest");
-      const guest = account ? await localListBooks("guest") : [];
       if (account && accountsAvailable) {
         const remote = await api("/books");
         setCloudBooks(remote.books);
@@ -189,7 +185,6 @@ function App() {
           setAdminTotal(0);
         }
       } else setCloudBooks([]);
-      setRecords([...local, ...guest]);
     } catch (e) {
       setToast(errorMessage(e, t));
     }
@@ -206,7 +201,6 @@ function App() {
     setBusy(true);
     setLocalImport((s) => ({ ...s, running: true, failed: false }));
     try {
-      await localQueue.current.catch(() => {});
       const result = await importGuestBooks(account.id, {
         onProgress: (p) =>
           setLocalImport({ ...p, running: true, failed: false }),
@@ -218,10 +212,32 @@ function App() {
           }
         },
       });
+      const incoming = [...incomingBooks.current];
+      for (const snapshot of incoming) {
+        try {
+          await new CloudWriter().save(snapshot);
+          incomingBooks.current = incomingBooks.current.filter(
+            (item) => item !== snapshot,
+          );
+        } catch (error) {
+          if (error.code === "version_conflict" && error.bookInfo) {
+            await api("/books/" + error.bookInfo.id);
+            incomingBooks.current = incomingBooks.current.filter(
+              (item) => item !== snapshot,
+            );
+          } else result.errors.push({ error });
+        }
+      }
+      if (incoming.length && !incomingBooks.current.length)
+        window.opener?.postMessage(
+          { type: "matiane-transfer-done" },
+          oldOrigin,
+        );
       setLocalImport({
         running: false,
-        done: result.saved.size,
-        total: result.total,
+        done:
+          result.saved.size + incoming.length - incomingBooks.current.length,
+        total: result.total + incoming.length,
         failed: result.errors.length > 0,
       });
       if (result.errors.length)
@@ -255,47 +271,23 @@ function App() {
   }, []);
   useEffect(() => {
     document.documentElement.lang = language;
-    localStorage.setItem("matiane-language", language);
+    try {
+      localStorage.setItem("matiane-language", language);
+    } catch {}
   }, [language]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(""), 7000);
     return () => clearTimeout(timer);
   }, [toast]);
-  function localSave(snapshot, writeOwner, cloud) {
-    localQueue.current = localQueue.current
-      .catch(() => {})
-      .then(() => localSaveBook(snapshot, writeOwner, cloud));
-    return localQueue.current;
-  }
-  useEffect(() => {
-    if (!book || readOnly || localImport.running || ai.running) return;
-    setLocalStatus("saving");
-    const snapshot = book,
-      w = writer.current,
-      token = activeToken.current;
-    const timer = setTimeout(() => {
-      localSave(snapshot, owner, w ? { ...w.info, pending: true } : null)
-        .then(() => {
-          if (token === activeToken.current && snapshot === current.current)
-            setLocalStatus("saved");
-        })
-        .catch(() => {
-          if (token === activeToken.current) setLocalStatus("unsaved");
-        });
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [book, owner, readOnly, localImport.running, ai.running]);
   async function saveCloud(snapshot = current.current, options = {}) {
     const w = writer.current,
-      token = activeToken.current,
-      writeOwner = currentUser.current?.id || owner;
+      token = activeToken.current;
     if (!w || !snapshot) return;
     setCloudStatus("savingCloud");
     setCloudError(null);
     try {
       const info = await w.save(snapshot, options);
-      await localSave(snapshot, writeOwner, { ...info, pending: false });
       if (token === activeToken.current) {
         setCloudStatus(
           snapshot === current.current ? "cloudSaved" : "savingCloud",
@@ -307,6 +299,7 @@ function App() {
       if (token === activeToken.current) {
         setCloudError(e);
         setCloudStatus("cloudError");
+        if (e.status === 401) setModal("auth");
       }
       throw e;
     }
@@ -330,10 +323,7 @@ function App() {
       if (
         book &&
         !readOnly &&
-        (localStatus !== "saved" ||
-          (user && cloudStatus !== "cloudSaved") ||
-          uploading ||
-          busy)
+        (cloudStatus !== "cloudSaved" || uploading || busy)
       ) {
         e.preventDefault();
         e.returnValue = "";
@@ -341,7 +331,7 @@ function App() {
     };
     window.addEventListener("beforeunload", leave);
     return () => window.removeEventListener("beforeunload", leave);
-  }, [book, user, localStatus, cloudStatus, uploading, busy, readOnly]);
+  }, [book, cloudStatus, uploading, busy, readOnly]);
   useEffect(() => {
     if (!ready || location.origin !== new URL(SECURE_STUDIO).origin) return;
     const receive = async (e) => {
@@ -350,47 +340,20 @@ function App() {
         e.source.postMessage({ type: "matiane-ready" }, oldOrigin);
         return;
       }
-      if (e.data?.type === "matiane-transfer-books") {
-        try {
-          if (!Array.isArray(e.data.books) || e.data.books.length > 100)
-            throw new Error("invalid transfer");
-          const imported = e.data.books.map((b) => validateBook(b));
-          for (let next of imported) {
-            const existing =
-              (await localLoadBook(next.id, "guest")) ||
-              (currentUser.current &&
-                (await localLoadBook(next.id, currentUser.current.id)));
-            if (existing) {
-              if (JSON.stringify(existing.book) === JSON.stringify(next))
-                continue;
-              // Preserve a different draft already stored at the destination.
-              next = forkBook(next);
-            }
-            await localSaveBook(next, "guest");
-          }
-          e.source.postMessage({ type: "matiane-transfer-done" }, oldOrigin);
-          if (currentUser.current) await syncLocalBooks();
-          else {
-            await refresh();
-            setModal("auth");
-            setToast(t.transferDone);
-          }
-        } catch {
-          setToast(t.importError);
-        }
+      if (
+        !["matiane-transfer-books", "matiane-transfer"].includes(e.data?.type)
+      )
         return;
-      }
-      if (e.data?.type !== "matiane-transfer") return;
       try {
-        const imported = forkBook(validateBook(e.data.book));
-        await localSaveBook(
-          imported,
-          currentUser.current?.id || "guest",
-          currentUser.current ? { pending: true } : null,
-        );
-        openBook(imported, null);
-        setToast(t.transferDone);
-        e.source.postMessage({ type: "matiane-transfer-done" }, oldOrigin);
+        const values =
+          e.data.type === "matiane-transfer-books"
+            ? e.data.books
+            : [e.data.book];
+        if (!Array.isArray(values) || values.length > 100)
+          throw new Error("invalid transfer");
+        incomingBooks.current = values.map((value) => validateBook(value));
+        if (currentUser.current) await syncLocalBooks();
+        else setModal("auth");
       } catch {
         setToast(t.importError);
       }
@@ -401,12 +364,18 @@ function App() {
   }, [ready]);
   function openBook(next, info = null, review = false) {
     if (aiController.current) return;
+    if (!currentUser.current || (!info && !review)) {
+      setModal("auth");
+      return;
+    }
     next = validateBook(next, { allowCloud: true });
     activeToken.current++;
     writer.current =
       currentUser.current && !review ? new CloudWriter(info) : null;
     setReadOnly(review);
     setSpineSelected(false);
+    setSelectedPages(new Set());
+    setSelectingPages(false);
     setBook(next);
     setLanguage(next.language);
     setIndex(0);
@@ -457,123 +426,67 @@ function App() {
     crops[slot] = newCrop();
     patchPage(at, { photos, crops });
   }
-  async function leaveEditor() {
-    if (uploading || busy) return;
-    if (readOnly) {
-      setBook(null);
-      setReadOnly(false);
+  async function createCloudBook(next) {
+    if (!currentUser.current) {
+      setModal("auth");
       return;
     }
-    const snapshot = current.current,
-      w = writer.current;
     setBusy(true);
-    writer.current = null;
-    activeToken.current++;
-    let stored = false;
     try {
-      await localSave(snapshot, owner, w ? { ...w.info, pending: true } : null);
-      stored = true;
-    } catch {}
-    if (w) {
-      try {
-        const info = await w.save(snapshot);
-        await w.queue;
-        stored = true;
-        await localSave(snapshot, owner, { ...info, pending: false }).catch(
-          () => {},
-        );
-      } catch {
-        setToast(t.cloudError);
-      }
-    }
-    if (stored) setBook(null);
-    else {
-      writer.current = w;
-      setToast(t.storageError);
-    }
-    setBusy(false);
-  }
-  async function authenticated(value) {
-    setBusy(true);
-    setLocalImport((s) => ({ ...s, running: true, failed: false }));
-    if (current.current && !currentUser.current && !readOnly) {
-      try {
-        // Flush the open book too: registration can happen before the local autosave timer fires.
-        await localSave(current.current, "guest", null);
-      } catch {
-        setToast(t.storageError);
-      }
-    }
-    setRecords([]);
-    setCloudBooks([]);
-    setAdminBooks([]);
-    setUser(value.user);
-    currentUser.current = value.user;
-    if (current.current) {
-      writer.current = null;
-      setCloudStatus("savingCloud");
-    }
-    setModal(null);
-  }
-  async function logout() {
-    if (busy) return;
-    setBusy(true);
-    const w = writer.current,
-      snapshot = current.current;
-    writer.current = null;
-    activeToken.current++;
-    try {
-      if (snapshot && !readOnly) {
-        let stored = false;
-        try {
-          await localSave(
-            snapshot,
-            owner,
-            w ? { ...w.info, pending: true } : null,
-          );
-          stored = true;
-        } catch {}
-        if (w) {
-          try {
-            const info = await w.save(snapshot);
-            await w.queue;
-            stored = true;
-            await localSave(snapshot, owner, { ...info, pending: false }).catch(
-              () => {},
-            );
-          } catch {}
-        }
-        if (!stored) throw new Error("unsaved");
-      }
-      await api("/auth/logout", { method: "POST" });
-      setBook(null);
-      setUser(null);
-      setRecords([]);
-      setCloudBooks([]);
-      setAdminBooks([]);
-      setReadOnly(false);
-      setModal(null);
-    } catch (e) {
-      writer.current = w;
-      setToast(errorMessage(e, t));
+      const w = new CloudWriter();
+      const info = await w.save(next);
+      openBook(w.savedBook, info);
+    } catch (error) {
+      setToast(errorMessage(error, t));
     } finally {
       setBusy(false);
     }
   }
-  async function openRecord(record) {
+  async function leaveEditor() {
+    if (uploading || busy) return;
     setBusy(true);
     try {
-      const r = await localLoadBook(record.id, record.owner);
-      if (!r) throw new Error("missing");
-      const info =
-        r.owner === owner
-          ? r.cloud?.id
-            ? { id: r.cloud.id, revision: r.cloud.revision }
-            : null
-          : null;
-      openBook(r.book, info);
-    } catch (e) {
-      setToast(t.importError);
+      if (!readOnly) {
+        await saveCloud();
+        await writer.current.queue;
+      }
+      activeToken.current++;
+      writer.current = null;
+      setBook(null);
+      setReadOnly(false);
+    } catch (error) {
+      setToast(errorMessage(error, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function authenticated(value) {
+    setCloudBooks([]);
+    setAdminBooks([]);
+    setUser(value.user);
+    currentUser.current = value.user;
+    setModal(null);
+  }
+  async function logout() {
+    if (busy || uploading) return;
+    setBusy(true);
+    try {
+      if (current.current && !readOnly) {
+        await saveCloud();
+        await writer.current.queue;
+      }
+      await api("/auth/logout", { method: "POST" });
+      activeToken.current++;
+      writer.current = null;
+      currentUser.current = null;
+      setBook(null);
+      setUser(null);
+      setCloudBooks([]);
+      setAdminBooks([]);
+      setReadOnly(false);
+      setModal(null);
+    } catch (error) {
+      setToast(errorMessage(error, t));
     } finally {
       setBusy(false);
     }
@@ -586,10 +499,6 @@ function App() {
         openBook(validateBook(value.book, { allowCloud: true }), null, true);
         return;
       }
-      const local = records.find(
-        (r) => r.owner === owner && r.cloud?.id === record.id,
-      );
-      if (local?.cloud.pending && !latest) return await openRecord(local);
       const value = await api("/books/" + record.id);
       openBook(validateBook(value.book, { allowCloud: true }), {
         id: value.id,
@@ -605,13 +514,7 @@ function App() {
     if (!window.confirm(t.deleteConfirm)) return;
     setBusy(true);
     try {
-      if (remote) {
-        await api("/books/" + record.id, { method: "DELETE" });
-        for (const local of records.filter(
-          (r) => r.owner === owner && r.cloud?.id === record.id,
-        ))
-          await localDeleteBook(local.id, owner);
-      } else await localDeleteBook(record.id, record.owner);
+      await api("/books/" + record.id, { method: "DELETE" });
       await refresh();
     } catch (e) {
       setToast(errorMessage(e, t));
@@ -633,10 +536,10 @@ function App() {
         });
         return;
       }
-      const source = remote
-        ? (await api("/books/" + record.id)).book
-        : (await localLoadBook(record.id, record.owner)).book;
-      openBook(forkBook(source, source.title + " · " + t.duplicateBook));
+      const source = (await api("/books/" + record.id)).book;
+      await createCloudBook(
+        forkBook(source, source.title + " · " + t.duplicateBook),
+      );
     } catch (e) {
       setToast(errorMessage(e, t));
     } finally {
@@ -649,12 +552,18 @@ function App() {
     const token = activeToken.current,
       available = 200 - book.photos.length,
       additions = [];
-    let failed = false;
+    let failed = false,
+      uploadError = "";
     for (const file of [...files].slice(0, available)) {
       try {
-        additions.push(await readPhoto(file));
-      } catch {
+        const photo = await readPhoto(file);
+        const body = await (await fetch(photo.src)).blob();
+        const remote = await api("/photos", { method: "POST", body });
+        additions.push({ ...photo, ...remote });
+      } catch (error) {
         failed = true;
+        if (error.code) uploadError = errorMessage(error, t);
+        if (error.code === "storage_quota") break;
       }
     }
     if (token === activeToken.current && additions.length)
@@ -667,7 +576,7 @@ function App() {
       files.length > available
         ? t.photoLimit
         : failed
-          ? t.uploadError
+          ? uploadError || t.uploadError
           : t.uploaded,
     );
   }
@@ -739,12 +648,7 @@ function App() {
       diagnostics: null,
     });
     try {
-      await localSave(
-        snapshot,
-        owner,
-        writer.current ? { ...writer.current.info, pending: true } : null,
-      );
-      setLocalStatus("saved");
+      await saveCloud(snapshot);
       const result = await buildWithAi(snapshot, {
         signal: controller.signal,
         signedIn: !!user,
@@ -758,18 +662,7 @@ function App() {
       const next = assembleBook(snapshot, result.analysis, result.plan);
       lastProgress = { ...lastProgress, phase: "saving" };
       setAi((state) => ({ ...state, phase: "saving" }));
-      // A separate local book shares photo records, so a backup does not duplicate image data.
-      const backup = validateBook(
-        {
-          ...snapshot,
-          id: uid(),
-          title: (snapshot.title + " · " + t.aiBackup).slice(0, 100),
-        },
-        { allowCloud: true },
-      );
-      await localSave(backup, owner, null);
-      if (user && writer.current)
-        await saveCloud(snapshot, { checkpoint: true, label: t.aiBackup });
+      await saveCloud(snapshot, { checkpoint: true, label: t.aiBackup });
       if (controller.signal.aborted || token !== activeToken.current)
         throw new DOMException("Cancelled", "AbortError");
       setHistory((past) => [...past.slice(-29), snapshot]);
@@ -817,18 +710,7 @@ function App() {
     try {
       if (count < snapshot.pageCount) {
         if (!window.confirm(t.shrinkConfirm)) return;
-        const backup = forkBook(
-          snapshot,
-          (snapshot.title + " · " + t.backup).slice(0, 100),
-        );
-        if (user) {
-          const w = new CloudWriter();
-          const info = await w.save(backup, {
-            checkpoint: true,
-            label: t.backup,
-          });
-          await localSave(backup, owner, { ...info, pending: false });
-        } else await localSave(backup, owner, null);
+        await saveCloud(snapshot, { checkpoint: true, label: t.backup });
       }
       if (token !== activeToken.current) return;
       setHistory((past) => [...past.slice(-29), snapshot]);
@@ -852,19 +734,91 @@ function App() {
     commit(pages);
     setIndex(pages.pages.findIndex((p) => p.id === selectedId));
   }
+  function toggleSelectedPage(id, at, range = false) {
+    const now = current.current,
+      anchor = selectionAnchor.current;
+    setSelectedPages((previous) => {
+      const next = new Set(previous);
+      if (range && anchor !== null) {
+        const from = Math.min(at, anchor),
+          to = Math.max(at, anchor);
+        for (let i = from; i <= to; i++)
+          if (now.pages[i].kind === "page") next.add(now.pages[i].id);
+      } else if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    selectionAnchor.current = at;
+  }
   function removePage() {
-    if (readOnly) return;
+    if (readOnly || busy || uploading) return;
     const now = current.current;
+    const indexes = selectingPages
+      ? now.pages.flatMap((page, at) =>
+          page.kind === "page" && selectedPages.has(page.id) ? [at] : [],
+        )
+      : now.pages[index].kind === "page"
+        ? [index]
+        : [];
     if (
-      now.pages[index].kind !== "page" ||
-      !window.confirm(t.deletePageConfirm)
+      !indexes.length ||
+      !window.confirm(
+        selectingPages
+          ? t.deletePagesConfirm.replace("{count}", indexes.length)
+          : t.deletePageConfirm,
+      )
     )
       return;
-    commit(deletePage(now, index));
+    const next = deletePages(now, indexes);
+    commit(next);
+    const selectedId = now.pages[index].id;
+    setIndex(
+      Math.max(
+        0,
+        next.pages.findIndex((page) => page.id === selectedId) >= 0
+          ? next.pages.findIndex((page) => page.id === selectedId)
+          : Math.min(index, now.pageCount),
+      ),
+    );
+    setSelectedPages(new Set());
+    setSelectingPages(false);
     setFrame(0);
+  }
+  function dragOverPage(event, at) {
+    if (!draggedPage.current || readOnly || busy) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    const rect = event.currentTarget.getBoundingClientRect();
+    setDropPosition(
+      Math.max(
+        1,
+        Math.min(
+          book.pageCount + 1,
+          at + (event.clientX >= rect.x + rect.width / 2 ? 1 : 0),
+        ),
+      ),
+    );
+    const strip = event.currentTarget.closest(".filmstrip"),
+      bounds = strip.getBoundingClientRect();
+    if (event.clientX < bounds.left + 30) strip.scrollBy({ left: -24 });
+    else if (event.clientX > bounds.right - 30) strip.scrollBy({ left: 24 });
+  }
+  function dropPage(event) {
+    event.preventDefault();
+    const from = book.pages.findIndex(
+      (page) => page.id === event.dataTransfer.getData("text/matiane-page"),
+    );
+    if (dropPosition !== null && from >= 1 && from <= book.pageCount) {
+      const to = dropPosition > from ? dropPosition - 1 : dropPosition;
+      if (from !== to) move(from, to);
+    }
+    draggedPage.current = null;
+    setDropPosition(null);
   }
   function undo() {
     if (readOnly || !history.length) return;
+    setSelectedPages(new Set());
+    setSelectingPages(false);
     setFuture((f) => [...f, book]);
     setBook(history.at(-1));
     setIndex((i) => Math.min(i, history.at(-1).pages.length - 1));
@@ -872,6 +826,8 @@ function App() {
   }
   function redo() {
     if (readOnly || !future.length) return;
+    setSelectedPages(new Set());
+    setSelectingPages(false);
     setHistory((h) => [...h, book]);
     setBook(future.at(-1));
     setIndex((i) => Math.min(i, future.at(-1).pages.length - 1));
@@ -881,28 +837,13 @@ function App() {
     (book?.title || "Matiane")
       .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "")
       .slice(0, 80) || "Matiane";
-  async function saveProject() {
-    setBusy(true);
-    try {
-      download(
-        JSON.stringify(await portableBook(book)),
-        filename() + ".matiane.json",
-        "application/json",
-      );
-      setToast(t.projectSaved);
-    } catch {
-      setToast(t.exportError);
-    } finally {
-      setBusy(false);
-    }
-  }
   async function importProject(file) {
     if (!file) return;
     setBusy(true);
     try {
       if (file.size > 200 * 1024 * 1024) throw new Error("size");
       const imported = forkBook(validateBook(JSON.parse(await file.text())));
-      openBook(imported);
+      await createCloudBook(imported);
       setToast(t.loaded);
     } catch {
       setToast(t.importError);
@@ -910,43 +851,40 @@ function App() {
       setBusy(false);
     }
   }
-  async function transfer(all = false) {
+  async function transfer() {
     if (busy || uploading) return;
     const popup = window.open(SECURE_STUDIO + "/?transfer=1", "matiane-secure");
     if (!popup) {
-      if (book) await saveProject();
       setToast(t.transferFailed);
       return;
     }
     setBusy(true);
     try {
-      let snapshot, books;
-      if (all) {
-        if (current.current) await localSave(current.current, "guest", null);
-        await localQueue.current;
-        const local = await localListBooks("guest");
+      const records = await legacyBooks("guest"),
         books = [];
-        for (const record of local)
-          books.push(
-            await portableBook((await localLoadBook(record.id, "guest")).book),
-          );
-        if (!books.length) return;
-      } else snapshot = await portableBook(book);
+      for (const record of records) {
+        const loaded =
+          record.owner === "legacy"
+            ? record
+            : await localLoadBook(record.id, record.owner);
+        books.push(await portableBook(loaded.book));
+      }
       const ack = await new Promise((resolve) => {
         let sent = false;
-        const receive = (e) => {
-          if (e.origin !== new URL(SECURE_STUDIO).origin || e.source !== popup)
+        const receive = (event) => {
+          if (
+            event.origin !== new URL(SECURE_STUDIO).origin ||
+            event.source !== popup
+          )
             return;
-          if (e.data?.type === "matiane-ready" && !sent) {
+          if (event.data?.type === "matiane-ready" && !sent) {
             sent = true;
             popup.postMessage(
-              all
-                ? { type: "matiane-transfer-books", books }
-                : { type: "matiane-transfer", book: snapshot },
+              { type: "matiane-transfer-books", books },
               new URL(SECURE_STUDIO).origin,
             );
           }
-          if (e.data?.type === "matiane-transfer-done") {
+          if (event.data?.type === "matiane-transfer-done") {
             clearTimeout(timeout);
             window.removeEventListener("message", receive);
             resolve(true);
@@ -955,26 +893,16 @@ function App() {
         const timeout = setTimeout(() => {
           window.removeEventListener("message", receive);
           resolve(false);
-        }, 20000);
+        }, 600000);
         window.addEventListener("message", receive);
         popup.postMessage(
           { type: "matiane-ping" },
           new URL(SECURE_STUDIO).origin,
         );
       });
-      if (!ack) {
-        for (const backup of all ? books : [snapshot])
-          download(
-            JSON.stringify(backup),
-            (backup.title
-              .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "")
-              .slice(0, 80) || "Matiane") + ".matiane.json",
-            "application/json",
-          );
-        setToast(t.transferFailed);
-      } else setToast(t.transferDone);
+      setToast(ack ? t.transferDone : t.transferFailed);
     } catch {
-      setToast(t.error);
+      setToast(t.importError);
     } finally {
       setBusy(false);
     }
@@ -1060,15 +988,17 @@ function App() {
     warnings = book ? issues(book, scope) : [];
   const format = book ? bookFormat(book) : FORMATS.portrait;
   const previewPhotos = new Map(book?.photos.map((photo) => [photo.id, photo]));
-  const adjacentPreviewSources = [...new Set(
-    [spreadList[spreadIndex + 1], spreadList[spreadIndex - 1]]
-      .flatMap((pair) => pair || [])
-      .filter((at) => at !== null)
-      .flatMap((at) => book.pages[at].photos)
-      .map((id) => previewPhotos.get(id))
-      .filter((photo) => photo?.src.startsWith("/api/photos/"))
-      .map(photoPreview),
-  )].join("\n");
+  const adjacentPreviewSources = [
+    ...new Set(
+      [spreadList[spreadIndex + 1], spreadList[spreadIndex - 1]]
+        .flatMap((pair) => pair || [])
+        .filter((at) => at !== null)
+        .flatMap((at) => book.pages[at].photos)
+        .map((id) => previewPhotos.get(id))
+        .filter((photo) => photo?.src.startsWith("/api/photos/"))
+        .map(photoPreview),
+    ),
+  ].join("\n");
   useEffect(() => {
     if (!adjacentPreviewSources) return;
     const sources = adjacentPreviewSources.split("\n");
@@ -1195,7 +1125,10 @@ function App() {
     </header>
   );
   return (
-    <div className={book ? "app-shell editor-shell" : "app-shell"}>
+    <div
+      className={book ? "app-shell editor-shell" : "app-shell"}
+      data-book-id={book ? writer.current?.info?.id : undefined}
+    >
       {header}
       {user && (localImport.running || localImport.failed) && (
         <div
@@ -1227,23 +1160,25 @@ function App() {
               <h1>{t.myBooks}</h1>
               <p>{t.welcome}</p>
             </div>
-            <div className="cabinet-actions">
-              <button
-                className="secondary"
-                onClick={() => projectInput.current.click()}
-                disabled={busy}
-              >
-                {t.openProject}
-              </button>
-              <button
-                className="primary"
-                onClick={() => setModal("new")}
-                disabled={busy}
-              >
-                <Plus size={16} />
-                {t.newProject}
-              </button>
-            </div>
+            {user && (
+              <div className="cabinet-actions">
+                <button
+                  className="secondary"
+                  onClick={() => projectInput.current.click()}
+                  disabled={busy}
+                >
+                  {t.openProject}
+                </button>
+                <button
+                  className="primary"
+                  onClick={() => setModal("new")}
+                  disabled={busy}
+                >
+                  <Plus size={16} />
+                  {t.newProject}
+                </button>
+              </div>
+            )}
           </div>
           {!user && (
             <div className="account-invitation">
@@ -1328,41 +1263,13 @@ function App() {
               </div>
             </section>
           )}
-          <section className="local-books">
-            <h2>{t.localBooks}</h2>
-            <div className="book-grid">
-              {records
-                .filter(
-                  (r) =>
-                    r.owner === "guest" ||
-                    !r.cloud?.id ||
-                    !cloudBooks.some((c) => c.id === r.cloud.id),
-                )
-                .map((r) => (
-                  <BookCard
-                    key={r.owner + ":" + r.id}
-                    t={t}
-                    cover={r.cover}
-                    record={{
-                      ...r,
-                      title: r.book.title,
-                      pageCount: r.book.pageCount,
-                    }}
-                    onOpen={() => openRecord(r)}
-                    onDelete={() => deleteRecord(r, false)}
-                    onCopy={() => duplicateRecord(r, false)}
-                    busy={busy}
-                  />
-                ))}
-            </div>
-          </section>
-          {!cloudBooks.length && !records.length && (
+          {user && !cloudBooks.length && (
             <div className="empty-cabinet">
               <span>✳</span>
               <p>{t.emptyDashboard}</p>
               <button
                 className="secondary"
-                onClick={() => openBook(demoBook(language))}
+                onClick={() => createCloudBook(demoBook(language))}
               >
                 {t.demo}
               </button>
@@ -1384,7 +1291,7 @@ function App() {
               <button
                 className="primary"
                 disabled={busy || uploading}
-                onClick={() => openBook(forkBook(book))}
+                onClick={() => createCloudBook(forkBook(book))}
               >
                 {t.saveCopy}
               </button>
@@ -1689,15 +1596,39 @@ function App() {
                   </span>
                   <div>
                     <button
+                      className="page-select-toggle"
+                      disabled={readOnly || busy || uploading}
+                      aria-pressed={selectingPages}
+                      onClick={() => {
+                        setSelectingPages((value) => !value);
+                        setSelectedPages(new Set());
+                        selectionAnchor.current = null;
+                      }}
+                    >
+                      {selectingPages ? t.cancelSelection : t.selectPages}
+                    </button>
+                    <button
                       className="delete-page-button"
-                      disabled={readOnly || page.kind !== "page" || busy}
+                      disabled={
+                        readOnly ||
+                        busy ||
+                        uploading ||
+                        (selectingPages
+                          ? !selectedPages.size
+                          : page.kind !== "page")
+                      }
                       title={
                         page.kind !== "page" ? t.coverLocked : t.deletePage
                       }
                       onClick={removePage}
                     >
                       <Trash2 size={14} />
-                      {t.deletePage}
+                      {selectingPages
+                        ? t.deleteSelected.replace(
+                            "{count}",
+                            selectedPages.size,
+                          )
+                        : t.deletePage}
                     </button>
                     <IconButton
                       title={t.moveLeft}
@@ -1744,42 +1675,104 @@ function App() {
                     </label>
                   </div>
                 </div>
-                <div className="filmstrip">
-                  {book.pages.map((p, i) => (
+                {selectingPages && (
+                  <div className="page-selection-tools">
+                    <span>
+                      {t.selectedPages.replace("{count}", selectedPages.size)}
+                    </span>
                     <button
-                      key={p.id}
-                      className={`page-thumb ${index === i ? "selected" : ""} ${p.kind !== "page" ? "cover-thumb" : ""}`}
-                      aria-label={pageLabel(p, i, t)}
-                      aria-pressed={index === i}
-                      onClick={() => choosePage(i, 0)}
-                      draggable={!readOnly && !busy && p.kind === "page"}
-                      onDragStart={(e) =>
-                        e.dataTransfer.setData("text/matiane-page", p.id)
+                      onClick={() =>
+                        setSelectedPages(
+                          new Set(
+                            book.pages
+                              .filter((page) => page.kind === "page")
+                              .map((page) => page.id),
+                          ),
+                        )
                       }
-                      onDragOver={(e) => {
-                        if (p.kind === "page") e.preventDefault();
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        const from = book.pages.findIndex(
-                          (p) =>
-                            p.id ===
-                            e.dataTransfer.getData("text/matiane-page"),
-                        );
-                        move(from, i);
-                      }}
                     >
-                      <div className="thumbnail-paper">
-                        <PageCanvas
-                          page={p}
-                          photos={book.photos}
-                          t={t}
-                          size={pageSize(book, p)}
-                          tiny
-                        />
-                      </div>
-                      <span>{pageLabel(p, i, t)}</span>
+                      {t.selectAll}
                     </button>
+                    <button onClick={() => setSelectedPages(new Set())}>
+                      {t.clearSelection}
+                    </button>
+                    <small>{t.selectRangeHint}</small>
+                  </div>
+                )}
+                <div
+                  className="filmstrip"
+                  onDragLeave={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget))
+                      setDropPosition(null);
+                  }}
+                >
+                  {book.pages.map((p, i) => (
+                    <div
+                      key={p.id}
+                      className={`page-thumb-wrap ${selectedPages.has(p.id) ? "batch-selected" : ""}`}
+                      onDragOver={(event) => dragOverPage(event, i)}
+                      onDrop={dropPage}
+                    >
+                      {dropPosition === i && (
+                        <span
+                          className="page-drop-indicator"
+                          role="status"
+                          aria-label={t.insertBefore.replace(
+                            "{page}",
+                            pageLabel(p, i, t),
+                          )}
+                        />
+                      )}
+                      <button
+                        className={`page-thumb ${index === i ? "selected" : ""} ${p.kind !== "page" ? "cover-thumb" : ""}`}
+                        aria-label={pageLabel(p, i, t)}
+                        aria-pressed={
+                          selectingPages && p.kind === "page"
+                            ? selectedPages.has(p.id)
+                            : index === i
+                        }
+                        onClick={(event) =>
+                          selectingPages && p.kind === "page"
+                            ? toggleSelectedPage(p.id, i, event.shiftKey)
+                            : choosePage(i, 0)
+                        }
+                        draggable={
+                          !readOnly &&
+                          !busy &&
+                          !selectingPages &&
+                          p.kind === "page"
+                        }
+                        onDragStart={(event) => {
+                          draggedPage.current = p.id;
+                          event.dataTransfer.effectAllowed = "move";
+                          event.dataTransfer.setData("text/matiane-page", p.id);
+                        }}
+                        onDragEnd={() => {
+                          draggedPage.current = null;
+                          setDropPosition(null);
+                        }}
+                      >
+                        <div className="thumbnail-paper">
+                          <PageCanvas
+                            page={p}
+                            photos={book.photos}
+                            t={t}
+                            size={pageSize(book, p)}
+                            tiny
+                          />
+                        </div>
+                        <span>{pageLabel(p, i, t)}</span>
+                      </button>
+                      {selectingPages && p.kind === "page" && (
+                        <input
+                          className="page-select-checkbox"
+                          type="checkbox"
+                          aria-label={t.selectPage.replace("{page}", i)}
+                          checked={selectedPages.has(p.id)}
+                          onChange={() => toggleSelectedPage(p.id, i)}
+                        />
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1820,14 +1813,14 @@ function App() {
                   {readOnly && <strong>{t.adminReview}</strong>}
                   {!readOnly && (
                     <span className={cloudError ? "error-note" : ""}>
-                      {t[user ? cloudStatus || "savingCloud" : localStatus]}
+                      {t[cloudStatus || "savingCloud"]}
                     </span>
                   )}
-                  {user && !readOnly ? (
+                  {!readOnly && (
                     <>
                       <button
                         onClick={showVersions}
-                        disabled={busy || uploading || readOnly}
+                        disabled={busy || uploading}
                       >
                         {t.versions}
                       </button>
@@ -1840,21 +1833,7 @@ function App() {
                         </button>
                       )}
                     </>
-                  ) : (
-                    !readOnly && (
-                      <button
-                        onClick={() =>
-                          accountsAvailable ? setModal("auth") : transfer()
-                        }
-                        disabled={busy || uploading || readOnly}
-                      >
-                        {accountsAvailable ? t.saveOnline : t.transfer}
-                      </button>
-                    )
                   )}
-                  <button onClick={saveProject} disabled={busy || uploading}>
-                    {t.saveProject}
-                  </button>
                   <button
                     onClick={() => projectInput.current.click()}
                     disabled={busy || uploading || readOnly}
@@ -2050,15 +2029,6 @@ function App() {
           </main>
         </>
       )}
-      <footer className="legal-footer">
-        <a href="/licenses/NOTICE.txt" target="_blank" rel="noreferrer">
-          {language === "ru"
-            ? "Лицензии ресурсов"
-            : language === "ka"
-              ? "რესურსების ლიცენზიები"
-              : "Resource licenses"}
-        </a>
-      </footer>
       <input
         hidden
         type="file"
@@ -2092,7 +2062,10 @@ function App() {
         <NewBookDialog
           t={t}
           onClose={() => setModal(null)}
-          onCreate={(count, title) => openBook(newBook(count, title, language))}
+          busy={busy}
+          onCreate={(count, title) =>
+            createCloudBook(newBook(count, title, language))
+          }
         />
       )}
       {modal === "auth" && (

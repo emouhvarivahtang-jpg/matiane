@@ -110,3 +110,31 @@ describe("AI book assembly", () => {
     ).toBe(true);
   });
 });
+
+describe("caption policy", () => {
+  it("puts keepsake captions on 30% of occupied pages throughout the album and never prints descriptions", () => {
+    const book = make(40, 40, "ru");
+    const description = "человек работает за ноутбуком в постели";
+    const result = assembleBook(
+      book,
+      book.photos.map((photo) => ({
+        id: photo.id,
+        description: "Person working on laptop in bed",
+        caption: description,
+      })),
+      {
+        pages: book.photos.map((photo) => ({
+          photoIds: [photo.id],
+          layout: "editorial",
+          caption: description,
+        })),
+      },
+    );
+    const inside = result.pages.slice(1, -1);
+    expect(inside.filter((page) => page.caption)).toHaveLength(12);
+    expect(inside.every((page) => page.caption !== description)).toBe(true);
+    expect(inside.slice(0, 10).some((page) => page.caption)).toBe(true);
+    expect(inside.slice(-10).some((page) => page.caption)).toBe(true);
+    expect(result.photos).toEqual(book.photos);
+  });
+});

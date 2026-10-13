@@ -83,15 +83,15 @@ export function Modal({
     </div>
   );
 }
-export function NewBookDialog({ t, onClose, onCreate }) {
+export function NewBookDialog({ t, onClose, onCreate, busy = false }) {
   const [count, setCount] = useState(40),
     [title, setTitle] = useState(t.blankBook);
   return (
-    <Modal label={t.newProject} onClose={onClose}>
+    <Modal label={t.newProject} onClose={onClose} busy={busy}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          onCreate(count, title || t.blankBook);
+          if (!busy) onCreate(count, title || t.blankBook);
         }}
       >
         <label>
@@ -99,11 +99,12 @@ export function NewBookDialog({ t, onClose, onCreate }) {
           <input
             autoFocus
             value={title}
+            disabled={busy}
             maxLength={100}
             onChange={(e) => setTitle(e.target.value)}
           />
         </label>
-        <fieldset>
+        <fieldset disabled={busy}>
           <legend>{t.insidePages}</legend>
           <div className="count-options">
             {PAGE_COUNTS.map((n) => (
@@ -120,7 +121,7 @@ export function NewBookDialog({ t, onClose, onCreate }) {
           </div>
           <p className="small-note">{t.coversSeparate}</p>
         </fieldset>
-        <button className="primary full-width" type="submit">
+        <button className="primary full-width" type="submit" disabled={busy}>
           {t.create}
         </button>
       </form>

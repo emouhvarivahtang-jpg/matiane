@@ -49,11 +49,12 @@ test("cloud books show thumbnails immediately, prefetch neighbouring screen copi
   const frame = page.locator(".workspace .spread-fit .photo-frame").filter({
     has: page.locator('img[alt="Memory 1.jpg"]'),
   });
-  await expect(frame.locator(".photo-placeholder")).toBeVisible();
+  await expect(frame.locator(".photo-placeholder")).toHaveCount(0);
+  await expect(frame.locator('img[alt="Memory 1.jpg"]')).toHaveAttribute("data-ready", "false");
   await expect(frame.locator('img[alt="Memory 1.jpg"]')).toHaveAttribute(
     "src", book.photos[0].src + "?preview=1",
   );
-  await expect(frame.locator(".photo-placeholder")).toHaveCount(0);
+  await expect(frame.locator('img[alt="Memory 1.jpg"]')).toHaveAttribute("data-ready", "true");
   await expect.poll(() => requested.includes(book.photos[1].src + "?preview=1")).toBe(true);
   expect(requested.includes(book.photos[3].src + "?preview=1")).toBe(false);
   expect(requested.filter((url) => !url.includes("?"))).toEqual([]);

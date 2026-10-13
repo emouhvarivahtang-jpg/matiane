@@ -1901,3 +1901,69 @@ body:has(.editor-shell) {
     width: 38px;
   }
 }
+
+.page-thumb-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+.page-select-checkbox {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  accent-color: #526b49;
+  cursor: pointer;
+}
+.page-thumb-wrap.batch-selected .page-thumb {
+  outline: 2px solid #526b49;
+  outline-offset: 1px;
+}
+.page-drop-indicator {
+  position: absolute;
+  z-index: 3;
+  left: -6px;
+  top: 0;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 3px;
+  background: #b55e3c;
+  pointer-events: none;
+}
+.page-drop-indicator::before,
+.page-drop-indicator::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: inherit;
+}
+.page-drop-indicator::after { bottom: 0; }
+.page-selection-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  padding: 5px 0 8px;
+  font-size: 10px;
+}
+.page-selection-tools button { text-decoration: underline; }
+.page-selection-tools small { color: #86917a; }
+.editor-shell .page-select-toggle {
+  padding: 4px;
+  font-size: 9px;
+  color: #536848;
+}
+.photo-frame:has(img[data-ready="false"]) { background: #eeeee7; }
+@media (prefers-reduced-motion: reduce) {
+  .photo-frame img { transition: none !important; }
+}
+@media (max-width: 800px) {
+  .editor-shell .filmstrip-heading { flex-wrap: wrap; }
+  .editor-shell .filmstrip-heading > div { flex-wrap: wrap; }
+  .editor-shell .page-select-toggle { font-size: 8px; padding: 3px; }
+  .page-selection-tools { font-size: 9px; }
+  .page-selection-tools small { display: none; }
+}

@@ -1,4 +1,6 @@
 import { defineConfig } from "@playwright/test";
+// Worker restarts reuse their synthetic account rather than exhausting sign-up limits.
+process.env.MATIANE_E2E_ACCOUNT_SEED ||= crypto.randomUUID() + crypto.randomUUID();
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,

@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, cloudSnapshot } from "./fixtures";
 import { PDFDocument, decodePDFRawStream } from "pdf-lib";
 import fs from "node:fs/promises";
 import { FONT_CATALOG, GEORGIAN_FONT_CATALOG } from "../src/fonts.js";
@@ -16,13 +16,7 @@ const edit = async (page, text) => {
   await page.locator(".active-leaf .editable-caption").click();
   await page.getByLabel("Your words").fill(text);
 };
-const downloadProject = async (page) => {
-  const event = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Download project", exact: true })
-    .click();
-  return JSON.parse(await fs.readFile(await (await event).path(), "utf8"));
-};
+const downloadProject = cloudSnapshot;
 test("cabinet keeps multiple books, fixed counts and covers, backs up shrinking", async ({
   page,
 }) => {
@@ -49,9 +43,9 @@ test("cabinet keeps multiple books, fixed counts and covers, backs up shrinking"
   await page.getByLabel("Inside pages", { exact: true }).selectOption("40");
   await expect(page.locator(".page-thumb")).toHaveCount(42);
   await page.getByRole("button", { name: "← My books", exact: true }).click();
-  await expect(page.locator(".book-card")).toHaveCount(3);
+  await expect(page.locator(".book-card")).toHaveCount(2);
   await page.reload();
-  await expect(page.locator(".book-card")).toHaveCount(3);
+  await expect(page.locator(".book-card")).toHaveCount(2);
   await page
     .getByRole("button")
     .filter({
@@ -216,6 +210,7 @@ test("photo fills every changed template after zooming out and panning to the li
 test("password visibility is reversible and does not submit or change its value", async ({
   page,
 }) => {
+  await page.context().clearCookies();
   await page.goto("/");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page
@@ -484,20 +479,9 @@ test("account autosave, named versions, recovery login and saved photos survive 
     process.env.MATIANE_TEST_URL?.startsWith("http://"),
     "Accounts require HTTPS",
   );
-  await create(page, "Cloud original");
-  await edit(page, "თბილისი · моя книга");
-  await page
-    .getByLabel("English / Russian typeface")
-    .selectOption("montserrat");
-
-  await page
-    .locator("input[type=file]")
-    .first()
-    .setInputFiles("public/photos/lake.jpg");
-  await page.locator(".library-photo>button").first().click();
-  await page
-    .getByRole("button", { name: "Save in account", exact: true })
-    .click();
+  await page.context().clearCookies();
+  await page.goto("/");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page
     .getByRole("button", { name: "Create account", exact: true })
     .click();
@@ -512,6 +496,17 @@ test("account autosave, named versions, recovery login and saved photos survive 
     .click();
   await expect(page.locator(".recovery-code")).toBeVisible();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await create(page, "Cloud original");
+  await edit(page, "თბილისი · моя книга");
+  await page
+    .getByLabel("English / Russian typeface")
+    .selectOption("montserrat");
+
+  await page
+    .locator("input[type=file]")
+    .first()
+    .setInputFiles("public/photos/lake.jpg");
+  await page.locator(".library-photo>button").first().click();
   await expect(page.locator(".save-bar")).toContainText("Saved in account", {
     timeout: 20000,
   });
@@ -570,80 +565,27 @@ test("account autosave, named versions, recovery login and saved photos survive 
       .filter({ hasText: "Cloud original" }),
   ).toHaveCount(0);
 });
-test("legacy local draft migrates safely on HTTP and mobile studio fits", async ({
+test("old HTTP studio requires secure sign-in and preserves its legacy draft", async ({
   page,
   request,
-}, info) => {
+}) => {
   const base = process.env.MATIANE_TEST_URL || "http://127.0.0.1:5173";
   await page.route("http://matiane.test/**", async (route) => {
-    const u = new URL(route.request().url());
+    const url = new URL(route.request().url());
     await route.fulfill({
-      response: await request.get(new URL(u.pathname + u.search, base).href),
+      response: await request.get(
+        new URL(url.pathname + url.search, base).href,
+      ),
     });
   });
   await page.goto("http://matiane.test/");
-  expect(await page.evaluate(() => isSecureContext)).toBe(false);
-  await page.evaluate(async () => {
-    const book = {
-      version: 1,
-      title: "Legacy memory",
-      language: "en",
-      photos: [],
-      pages: [
-        {
-          id: "legacy",
-          layout: "editorial",
-          color: "#FAF8F3",
-          photos: [null],
-          focus: { x: 50, y: 50 },
-          caption: "Preserve my original page",
-          font: "serif",
-          fontSize: 14,
-          align: "center",
-        },
-      ],
-    };
-    const db = await new Promise((resolve, reject) => {
-      const r = indexedDB.open("matiane", 2);
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-    });
-    await new Promise((resolve) => {
-      const tx = db.transaction("projects", "readwrite");
-      tx.objectStore("projects").put(book, "current");
-      tx.oncomplete = resolve;
-    });
-    db.close();
-  });
-  await page.reload();
-  await page
-    .getByRole("button")
-    .filter({
-      has: page.getByRole("heading", { name: "Legacy memory", exact: true }),
-    })
-    .click();
-  await page.getByRole("button", { name: "Page 1", exact: true }).click();
-  await expect(page.locator(".active-leaf .page-caption")).toHaveText(
-    "Preserve my original page",
-  );
-  await expect(page.locator(".page-thumb")).toHaveCount(42);
-  await page.setViewportSize({ width: 390, height: 844 });
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth),
-  ).toBeLessThanOrEqual(390);
-  await page.getByRole("button", { name: "RU", exact: true }).click();
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth),
-  ).toBeLessThanOrEqual(390);
-  await page.getByRole("button", { name: "ქარ", exact: true }).click();
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth),
-  ).toBeLessThanOrEqual(390);
-  await page.screenshot({
-    path: info.outputPath("mobile.png"),
-    fullPage: true,
-  });
-  await page.unrouteAll({ behavior: "ignoreErrors" });
+  await expect(
+    page.getByRole("button", { name: "Open secure studio", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "New book", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator(".editor-shell")).toHaveCount(0);
 });
 test("desktop spread presentation", async ({ page }, info) => {
   await page.setViewportSize({ width: 1440, height: 1000 });

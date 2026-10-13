@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, cloudSnapshot } from "./fixtures";
 import { newBook } from "../src/model.js";
 import { FONT_CATALOG, GEORGIAN_FONT_CATALOG } from "../src/fonts.js";
 import { PDFDocument } from "pdf-lib";
@@ -266,6 +266,5 @@ test("admin review shows other owners and does not autosave their books", async 
   await page.getByRole('button',{name:'Sign out',exact:true}).click();
   await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeVisible();
   expect(writes).toEqual([{path:'/api/auth/logout',method:'POST'}]);
-  const drafts=await page.evaluate(()=>new Promise(resolve=>{const open=indexedDB.open('matiane',2);open.onsuccess=()=>{const db=open.result;const request=db.transaction('books').objectStore('books').getAll();request.onsuccess=()=>{resolve(request.result);db.close();};};}));
-  expect(drafts).toEqual([]);
+  expect(await page.evaluate(async () => (await indexedDB.databases()).some((db) => db.name === "matiane"))).toBe(false);
 });
