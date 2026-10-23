@@ -1,4 +1,4 @@
-import { test, expect, cloudSnapshot } from "./fixtures";
+import { test, expect, cloudSnapshot, testOrigin } from "./fixtures";
 import { PDFDocument, decodePDFRawStream } from "pdf-lib";
 import fs from "node:fs/promises";
 import { FONT_CATALOG, GEORGIAN_FONT_CATALOG } from "../src/fonts.js";
@@ -569,7 +569,7 @@ test("old HTTP studio requires secure sign-in and preserves its legacy draft", a
   page,
   request,
 }) => {
-  const base = process.env.MATIANE_TEST_URL || "http://127.0.0.1:5173";
+  const base = testOrigin;
   await page.route("http://matiane.test/**", async (route) => {
     const url = new URL(route.request().url());
     await route.fulfill({

@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, testOrigin } from "./fixtures";
 import { newBook } from "../src/model.js";
 import fs from "node:fs/promises";
 
@@ -287,9 +287,9 @@ test("the old IP studio transfers every local book before registration and retai
           url = new URL(source.url());
         const headers = await source.allHeaders();
         delete headers.host;
-        if (headers.origin) headers.origin = "http://127.0.0.1:5173";
+        if (headers.origin) headers.origin = new URL(testOrigin).origin;
         const response = await request.fetch(
-          "http://127.0.0.1:5173" + url.pathname + url.search,
+          testOrigin + url.pathname + url.search,
           {
             method: source.method(),
             headers,

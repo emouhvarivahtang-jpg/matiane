@@ -4,15 +4,16 @@ import { test as base, expect, request } from "@playwright/test";
 // keep certificate validation enabled and retain the real browser origin.
 const relay = process.env.MATIANE_TLS_RELAY === "1";
 const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+export const testOrigin =
+  process.env.MATIANE_TEST_URL ||
+  (process.env.MATIANE_TEST_BUILD === "1"
+    ? "http://127.0.0.1:4173"
+    : "http://127.0.0.1:5173");
 export const test = base.extend({
   signedIn: [true, { option: true }],
   cloudAccount: [
     async ({}, use, info) => {
-      const origin =
-        process.env.MATIANE_TEST_URL ||
-        (process.env.MATIANE_TEST_BUILD === "1"
-          ? "http://127.0.0.1:4173"
-          : "http://127.0.0.1:5173");
+      const origin = testOrigin;
       const transport = await request.newContext({
         baseURL: origin,
         ...(relay && proxy ? { proxy: { server: proxy } } : {}),
@@ -64,11 +65,7 @@ export const test = base.extend({
   ],
   request: async ({}, use) => {
     const transport = await request.newContext({
-      baseURL:
-        process.env.MATIANE_TEST_URL ||
-        (process.env.MATIANE_TEST_BUILD === "1"
-          ? "http://127.0.0.1:4173"
-          : "http://127.0.0.1:5173"),
+      baseURL: testOrigin,
       ...(relay && proxy ? { proxy: { server: proxy } } : {}),
       ignoreHTTPSErrors: false,
     });
