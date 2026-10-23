@@ -9,9 +9,12 @@ const studio =
   parameters.has("transfer") ||
   parameters.has("auth") ||
   location.origin === "http://57.129.177.67";
-const Screen = lazy(() =>
-  studio ? import("./main.jsx") : import("./landing.jsx"),
-);
+document.documentElement.dataset.surface = studio ? "studio" : "landing";
+// Separate loader callbacks are essential: Vite 6 attaches the wrong CSS
+// dependency list to a conditional import inside a single lazy callback.
+const Studio = lazy(() => import("./main.jsx"));
+const Landing = lazy(() => import("./landing.jsx"));
+const Screen = studio ? Studio : Landing;
 
 createRoot(document.getElementById("root")).render(
   <Suspense

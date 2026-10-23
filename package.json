@@ -9,6 +9,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run && node --test server/*.test.js",
     "test:e2e": "playwright test",
+    "test:production": "npm run build && MATIANE_TEST_BUILD=1 playwright test tests/surface-isolation.spec.js tests/editor-viewport.spec.js tests/landing.spec.js",
     "dev:server": "node --watch server/index.js",
     "start:server": "node server/index.js",
     "test:server": "node --test server/*.test.js"
