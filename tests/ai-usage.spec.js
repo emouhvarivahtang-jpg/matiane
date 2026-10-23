@@ -80,7 +80,7 @@ async function cabinet(page, { admin = true } = {}) {
     }
     return route.fulfill({ status: 404, json: { error: "not_found" } });
   });
-  await page.goto("/");
+  await page.goto("/studio");
   await expect(
     page.getByRole("heading", { name: "My books", exact: true }),
   ).toBeVisible();

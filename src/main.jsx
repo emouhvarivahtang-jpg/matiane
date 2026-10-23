@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { createRoot } from "react-dom/client";
+import { initialLanguage } from "./language";
 import {
   Download,
   Upload,
@@ -83,17 +83,8 @@ function LayoutIcon({ layout }) {
     </div>
   );
 }
-function App() {
-  const [language, setLanguage] = useState(() => {
-    try {
-      return (
-        localStorage.getItem("matiane-language") ||
-        (/^ru/.test(navigator.language) ? "ru" : "en")
-      );
-    } catch {
-      return /^ru/.test(navigator.language) ? "ru" : "en";
-    }
-  });
+export default function App() {
+  const [language, setLanguage] = useState(initialLanguage);
   const t = messages[language] || messages.en;
   const [ready, setReady] = useState(false),
     [user, setUser] = useState(null),
@@ -170,6 +161,15 @@ function App() {
       setReady(true);
     })();
   }, []);
+  useEffect(() => {
+    if (!ready) return;
+    const url = new URL(location.href);
+    const requested = url.searchParams.get("auth");
+    if (!["register", "login"].includes(requested)) return;
+    if (!user) setModal(requested === "register" ? "register" : "auth");
+    url.searchParams.delete("auth");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }, [ready]);
   async function refresh(account = currentUser.current) {
     try {
       if (account && accountsAvailable) {
@@ -1056,7 +1056,7 @@ function App() {
     <header className="site-header">
       <button
         className="brand"
-        onClick={() => book && leaveEditor()}
+        onClick={() => (book ? leaveEditor() : location.assign("/"))}
         disabled={busy || uploading}
       >
         <span className="brand-mark">
@@ -2068,9 +2068,10 @@ function App() {
           }
         />
       )}
-      {modal === "auth" && (
+      {(modal === "auth" || modal === "register") && (
         <AuthDialog
           t={t}
+          initialMode={modal === "register" ? "register" : "login"}
           onClose={() => setModal(null)}
           onAuthenticated={authenticated}
         />
@@ -2305,4 +2306,3 @@ function BookCard({ record, cover, t, onOpen, onDelete, onCopy, busy }) {
     </article>
   );
 }
-createRoot(document.getElementById("root")).render(<App />);

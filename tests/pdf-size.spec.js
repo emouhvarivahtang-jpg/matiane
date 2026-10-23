@@ -66,7 +66,7 @@ test("PDF profiles keep exact source bytes, share duplicate uploads and reduce p
     ];
     page.caption = index === 2 ? "თბილისი · Москва · Memories" : "";
   }
-  await page.goto("/");
+  await page.goto("/studio");
   await page
     .locator("input[type=file]")
     .nth(1)
@@ -195,7 +195,7 @@ test("compact spreads remove hidden pixels while preserving pan, zoom, bleed and
     source.photos = [book.photos[0].id];
     source.crops = [{ x: 73, y: 22, zoom: 1.1 }];
   }
-  await page.goto("/");
+  await page.goto("/studio");
   await page
     .locator("input[type=file]")
     .nth(1)

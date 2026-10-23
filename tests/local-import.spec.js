@@ -90,7 +90,7 @@ async function cleanup(page) {
 test("registration imports all closed guest books with photos, layouts and covers, without reviving the legacy backup", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/studio");
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();
@@ -202,7 +202,7 @@ test("a lost upload response keeps the local original, and retry creates exactly
   page,
   request,
 }) => {
-  await page.goto("/");
+  await page.goto("/studio");
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();

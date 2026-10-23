@@ -5,7 +5,7 @@ import fs from "node:fs/promises";
 const AI_BUTTON = "Build with AI! (test)";
 
 async function seedDraft(page, count = 6) {
-  await page.goto("/");
+  await page.goto("/studio");
   await expect(
     page.getByRole("button", { name: "New book", exact: true }),
   ).toBeVisible();
@@ -394,7 +394,7 @@ test("signed-in AI assembly saves a recoverable server checkpoint before replaci
   test.setTimeout(60000);
   const mock = await mockAI(page);
   await page.context().clearCookies();
-  await page.goto("/");
+  await page.goto("/studio");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page
     .getByRole("button", { name: "Create account", exact: true })

@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 import sharp from "sharp";
 
 async function create(page) {
-  await page.goto("/");
+  await page.goto("/studio");
   await page.getByRole("button", { name: "New book", exact: true }).click();
   await page.getByRole("button", { name: "Create book", exact: true }).click();
 }
@@ -235,7 +235,7 @@ test("admin review shows other owners and does not autosave their books", async 
     else return route.fulfill({ status: 404, json: { error: "not_found" } });
     await route.fulfill({ json: data });
   });
-  await page.goto("/");
+  await page.goto("/studio");
   await expect(
     page.getByRole("heading", { name: "All books · administrator · 1" }),
   ).toBeVisible();

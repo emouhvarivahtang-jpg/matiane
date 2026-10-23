@@ -128,8 +128,13 @@ export function NewBookDialog({ t, onClose, onCreate, busy = false }) {
     </Modal>
   );
 }
-export function AuthDialog({ t, onClose, onAuthenticated }) {
-  const [mode, setMode] = useState("login"),
+export function AuthDialog({
+  t,
+  onClose,
+  onAuthenticated,
+  initialMode = "login",
+}) {
+  const [mode, setMode] = useState(initialMode),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
     [showPassword, setShowPassword] = useState(false),

@@ -5,7 +5,7 @@ import { FONT_CATALOG, GEORGIAN_FONT_CATALOG } from "../src/fonts.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 const create = async (page, title = "My memories", count = 40) => {
-  await page.goto("/");
+  await page.goto("/studio");
   await page.getByRole("button", { name: "New book", exact: true }).click();
   await page.getByLabel("Book title").fill(title);
   await page.getByRole("button", { name: String(count), exact: true }).click();
@@ -211,7 +211,7 @@ test("password visibility is reversible and does not submit or change its value"
   page,
 }) => {
   await page.context().clearCookies();
-  await page.goto("/");
+  await page.goto("/studio");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page
     .getByRole("button", { name: "Create account", exact: true })
@@ -480,7 +480,7 @@ test("account autosave, named versions, recovery login and saved photos survive 
     "Accounts require HTTPS",
   );
   await page.context().clearCookies();
-  await page.goto("/");
+  await page.goto("/studio");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page
     .getByRole("button", { name: "Create account", exact: true })
@@ -578,7 +578,7 @@ test("old HTTP studio requires secure sign-in and preserves its legacy draft", a
       ),
     });
   });
-  await page.goto("http://matiane.test/");
+  await page.goto("http://matiane.test/studio");
   await expect(
     page.getByRole("button", { name: "Open secure studio", exact: true }),
   ).toBeVisible();
@@ -589,7 +589,7 @@ test("old HTTP studio requires secure sign-in and preserves its legacy draft", a
 });
 test("desktop spread presentation", async ({ page }, info) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/");
+  await page.goto("/studio");
   await page
     .getByRole("button", { name: "Try a sample book", exact: true })
     .click();

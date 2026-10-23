@@ -3,7 +3,7 @@ import { newBook } from "../src/model.js";
 import fs from "node:fs/promises";
 
 async function openLongDraft(page) {
-  await page.goto("/");
+  await page.goto("/studio");
   await expect(
     page.getByRole("button", { name: "New book", exact: true }),
   ).toBeVisible();

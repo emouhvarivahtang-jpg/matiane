@@ -44,7 +44,7 @@ test("cloud books show thumbnails immediately, prefetch neighbouring screen copi
       return route.fulfill({ json: { ...record, book } });
     return route.fulfill({ status: 404, json: { error: "not_found" } });
   });
-  await page.goto("/");
+  await page.goto("/studio");
   await page.locator(".book-card-open").click();
   const frame = page.locator(".workspace .spread-fit .photo-frame").filter({
     has: page.locator('img[alt="Memory 1.jpg"]'),

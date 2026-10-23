@@ -6,7 +6,7 @@ test.describe("account gate", () => {
   test("anonymous visitors cannot create books or use AI, and no local book database is created", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/studio");
     await expect(
       page.getByRole("button", { name: "Sign in", exact: true }),
     ).toBeVisible();
@@ -47,7 +47,7 @@ test("cloud creation works with device storage disabled and survives reload", as
         },
       });
   });
-  await page.goto("/");
+  await page.goto("/studio");
   await page.getByRole("button", { name: "New book", exact: true }).click();
   await page.getByLabel("Book title").fill("Cloud without device storage");
   await page.getByRole("button", { name: "Create book", exact: true }).click();
@@ -69,7 +69,7 @@ test("batch deletion keeps covers and page count, supports ranges and undo, and 
   const book = newBook(40, "Batch deletion and insertion");
   for (let index = 1; index <= 6; index++)
     book.pages[index].caption = "Chapter " + index;
-  await page.goto("/");
+  await page.goto("/studio");
   await page
     .locator("input[type=file]")
     .nth(1)
