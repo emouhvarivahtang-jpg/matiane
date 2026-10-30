@@ -37,6 +37,13 @@ test("Georgian leads the homepage and language choices, with explicit and rememb
   await expect(
     page.locator('a[href*="wa.me"], a[href*="whatsapp"]'),
   ).toHaveCount(0);
+  await page.goto("/studio?lang=ka");
+  await expect(page.locator(".site-header .language-switch")).toBeVisible();
+  expect(
+    await page
+      .locator(".site-header .language-switch button")
+      .allTextContents(),
+  ).toEqual(["ქარ", "EN", "RU"]);
 });
 
 test("the six supplied prices in GEL match the selected cover and pages, and the physical preview changes", async ({

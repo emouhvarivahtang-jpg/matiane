@@ -39,6 +39,9 @@ claim to have implemented that platform workflow.
 Language order is Georgian, English, Russian. Explicit `lang` links and saved
 preferences win; new landing visitors default to Georgian. No generic helper
 slogans below CTAs, and no marketing FAQ.
+The studio's language-switch buttons are deliberately reordered to match the
+user's explicit “everywhere” instruction. This is the only studio source change;
+its styles, book behavior and saved-data semantics are preserved.
 
 ## Hallmark tooling
 

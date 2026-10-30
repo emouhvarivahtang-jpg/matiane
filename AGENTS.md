@@ -33,8 +33,10 @@ card rows, helper slogans under buttons and a marketing FAQ. Details are in
 `docs/landing-design.md`. The project-local Hallmark skill is installed under
 `.agents/skills/hallmark` (ignored tooling, not an application dependency).
 
-Landing language choices are Georgian, English, Russian, in that order; a new
-visitor defaults to Georgian, with explicit URL and saved choices respected.
+The user explicitly requested Georgian, English, Russian as the language-picker
+order everywhere; the studio picker deliberately follows that same order.
+This ordering is the sole intentional studio change in the landing redesign.
+New landing visitors default to Georgian, with explicit URL and saved choices respected.
 Prices are in Georgian lari: hardcover 40/60/80 pages costs 100/140/190;
 softcover costs 80/110/150. These are user-supplied commercial facts. Do not
 invent delivery charges, offers, contact numbers or print specifications.

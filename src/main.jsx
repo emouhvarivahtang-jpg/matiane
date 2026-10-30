@@ -1070,8 +1070,8 @@ export default function App() {
       <div className="header-actions">
         <div className="language-switch" aria-label="Language">
           {[
-            ["en", "EN"],
             ["ka", "ქარ"],
+            ["en", "EN"],
             ["ru", "RU"],
           ].map(([lang, label]) => (
             <button
