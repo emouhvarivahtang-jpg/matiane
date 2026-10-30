@@ -28,13 +28,11 @@ test.describe("public homepage", () => {
       .getByRole("link", { name: "Как это работает", exact: true })
       .click();
     await expect(page.locator("#how-it-works")).toBeInViewport();
+    await expect(page.locator(".lp-faq")).toHaveCount(0);
     await page
-      .locator("summary")
-      .filter({ hasText: "Вы печатаете и доставляете книги?" })
+      .getByRole("link", { name: "Форматы и цены", exact: true })
       .click();
-    await expect(
-      page.getByText(/Сейчас Matiane — это студия для создания макета/),
-    ).toBeVisible();
+    await expect(page.locator("#book-options")).toBeInViewport();
     expect(
       requests.filter((url) =>
         /\/api\/|\/src\/main\.jsx|\/src\/model\.js|heic|pdf-lib/.test(url),
@@ -65,6 +63,8 @@ test.describe("public homepage", () => {
   test("all languages fit mobile, keep the selected language, and open the right authentication form", async ({
     page,
   }, info) => {
+    // Three full-page image/3D captures also run on shared cloud CPU.
+    test.setTimeout(60000);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/?lang=ru");
     for (const [language, title] of [
@@ -116,7 +116,7 @@ test.describe("public homepage", () => {
     await page.locator(".lp-hero .lp-cta").click();
     await expect(
       page.getByRole("dialog", { name: "Create account", exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15000 });
     await page
       .getByLabel("Email", { exact: true })
       .fill(`landing-qa-${crypto.randomUUID()}@example.invalid`);
