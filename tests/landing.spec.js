@@ -13,7 +13,7 @@ test.describe("public homepage", () => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto("/?lang=ru");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-      "Самое дорогое —между страницами.",
+      "Перенесите воспоминания из ленты телефона в книгу",
     );
     await page.evaluate(() => document.fonts.ready);
     await expect(page.locator(".lp-hero-art img").first()).toBeVisible();
@@ -68,9 +68,9 @@ test.describe("public homepage", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/?lang=ru");
     for (const [language, title] of [
-      ["ru", "Самое дорогое —"],
-      ["en", "Your favourite days,"],
-      ["ka", "ყველაზე ძვირფასი —"],
+      ["ka", "გადაიტანეთ მოგონებები"],
+      ["en", "Move your memories"],
+      ["ru", "Перенесите воспоминания"],
     ]) {
       await page.locator(".lp-header select").selectOption(language);
       await expect(page.locator("html")).toHaveAttribute("lang", language);
@@ -96,7 +96,7 @@ test.describe("public homepage", () => {
       });
     }
     await page.reload();
-    await expect(page.locator("html")).toHaveAttribute("lang", "ka");
+    await expect(page.locator("html")).toHaveAttribute("lang", "ru");
     await page.locator(".lp-header select").selectOption("ka");
     await page.locator(".lp-login").click();
     await expect(

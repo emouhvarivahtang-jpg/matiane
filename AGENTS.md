@@ -4,7 +4,7 @@ The public landing and the photo-book studio are independent product surfaces.
 Changes to one must never change the layout, typography, controls, or behavior
 of the other. This is an explicit user requirement.
 
-- Landing: `src/landing.jsx`, `src/landing-text.js`, `src/landing.css` and
+- Landing: `src/landing*.jsx`, `src/landing*.js`, `src/landing*.css` and
   `public/landing/`. Studio: `src/main.jsx`, `src/styles.css`, `src/studio.css`,
   `src/fonts.css`, the book editor and account components.
 - Keep independent lazy loader callbacks in `src/entry.jsx`. Do not put both
@@ -26,12 +26,21 @@ of the other. This is an explicit user requirement.
 
 ## Landing design and content
 
-The user selected Hallmark and an editorial photo-journal direction on 2026-10-30.
-Keep the milk, forest-green and terracotta palette, asymmetric typography and
-actual studio samples. Avoid decorative eyebrows, italic accent words, generic
-card rows, helper slogans under buttons and a marketing FAQ. Details are in
-`docs/landing-design.md`. The project-local Hallmark skill is installed under
-`.agents/skills/hallmark` (ignored tooling, not an application dependency).
+The user rejected the asymmetric photo-journal design. This supersedes the earlier
+editorial direction. Keep the palette, but use clear classical hierarchy, aligned
+sections and a visible photo book and action. The exact Russian proposition is
+“Перенесите воспоминания из ленты телефона в книгу”, translated into KA and EN.
+
+- `/`: original warm design restored, with approved content changes.
+- `/landing-v2`: new classical landing for comparison.
+- `/landing-archive`: frozen photo-journal version from `2d2097f`, including its
+  own JSX, CSS, copy and catalog. Do not silently redesign the archive.
+
+Keep separate lazy callbacks and CSS guards for each variant. The HTML attribute
+`data-landing-version` confines variant styles in addition to `data-surface`.
+No FAQ or helper slogans under buttons. Hallmark is under `.agents/skills/hallmark`
+(ignored tooling, not a dependency). See `docs/landing-design.md` and
+`docs/landing-research.md` for design decisions and the additional GitHub research.
 
 The user explicitly requested Georgian, English, Russian as the language-picker
 order everywhere; the studio picker deliberately follows that same order.

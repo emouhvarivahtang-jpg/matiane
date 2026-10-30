@@ -5,13 +5,26 @@ export function scopeUiStyles() {
     postcssPlugin: "matiane-independent-surfaces",
     Once(root) {
       const path = root.source?.input.file?.replaceAll("\\", "/") || "";
-      const surface = /\/src\/landing\.css$/.test(path)
-        ? "landing"
-        : /\/src\/(?:styles|studio|fonts)\.css$/.test(path)
-          ? "studio"
-          : null;
+      const surface =
+        /\/src\/landing(?:-v2|-archive|-configurator)?\.css$/.test(path)
+          ? "landing"
+          : /\/src\/(?:styles|studio|fonts)\.css$/.test(path)
+            ? "studio"
+            : null;
       if (!surface) return;
-      const guard = `:where(html[data-surface="${surface}"])`;
+      const version = path.endsWith("/landing.css")
+        ? "classic"
+        : path.endsWith("/landing-v2.css")
+          ? "v2"
+          : path.endsWith("/landing-archive.css")
+            ? "archive"
+            : null;
+      const versionGuard = version
+        ? `[data-landing-version="${version}"]`
+        : path.endsWith("/landing-configurator.css")
+          ? ':is([data-landing-version="classic"], [data-landing-version="v2"])'
+          : "";
+      const guard = `:where(html[data-surface="${surface}"]${versionGuard})`;
       root.walkRules((rule) => {
         // Percentages/from/to belong to keyframes, not document selectors.
         if (

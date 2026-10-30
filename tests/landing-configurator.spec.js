@@ -123,8 +123,8 @@ test("sample spreads turn without moving the page and all controls and prices fi
   page,
 }, info) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/?lang=ru");
-  const picture = page.locator(".lp-hero-art img");
+  await page.goto("/landing-v2?lang=ru");
+  const picture = page.locator(".v2-open-sample img");
   await expect(
     page.getByRole("button", { name: "Предыдущий пример разворота" }),
   ).toBeDisabled();
@@ -139,9 +139,7 @@ test("sample spreads turn without moving the page and all controls and prices fi
   await expect(
     page.getByRole("button", { name: "Следующий пример разворота" }),
   ).toBeDisabled();
-  await expect(page.locator(".lp-preview-caption")).toContainText(
-    "Каким был 2026?",
-  );
+  await expect(page.locator(".lp-preview-caption")).toContainText("Наш 2026");
   const section = page.locator("#book-options");
   for (const [language, hard, soft] of [
     ["ka", "მყარი", "რბილი"],

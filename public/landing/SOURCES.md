@@ -51,3 +51,16 @@ in the subset.
 
 `journal-humanist.woff2` is the FiraGO Regular web subset, with Georgian, Latin,
 Cyrillic and the Georgian lari sign (U+20BE), under `public/fonts/FiraGO-OFL.txt`.
+
+## Restored and classical alternatives
+
+The original landing photographs are reused by the restored design and v2.
+They already belonged to Matiane's licensed asset set; no new images were selected
+from a stock-photo site. Photo-journal assets remain unchanged for the archive.
+
+`book-classic-spread-{ka,en,ru}-{0,1,2}.webp` and
+`book-classic-cover-{ka,en,ru}.webp` are new captures of the actual Matiane preview
+with the existing example photographs and synthetic demonstration books. These
+are layout samples, not photographs of delivered printed books. No customer
+account, photo or book was used. The v2 travel scenario uses the existing CC0
+shore photograph by Jebulon, credited in the footer.

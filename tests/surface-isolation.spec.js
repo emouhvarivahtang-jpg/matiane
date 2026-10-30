@@ -47,6 +47,12 @@ async function mockStudio(context) {
 
 async function settle(page) {
   await page.evaluate(async () => {
+    // Measure the full landing only after its lazy captures have intrinsic sizes.
+    // Otherwise a late image decode can look like a stylesheet changed the page.
+    if (document.documentElement.dataset.surface === "landing") {
+      for (const image of document.images) image.loading = "eager";
+      await Promise.all([...document.images].map((image) => image.decode()));
+    }
     await document.fonts.ready;
     await new Promise((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(resolve)),
@@ -114,9 +120,12 @@ test("the built studio loads its own CSS and resists every landing stylesheet", 
       before[".workspace .book-spread"].height,
   ).toBeLessThan(900);
   const other = await page.context().newPage();
-  await other.goto("/?lang=en");
-  await expect(other.locator(".lp-hero")).toBeVisible();
-  await page.addStyleTag({ content: await styles(other) });
+  for (const path of ["/", "/landing-v2", "/landing-archive"]) {
+    await other.goto(path + "?lang=en");
+    await expect(other.locator(".lp-hero")).toBeVisible();
+    await page.addStyleTag({ content: await styles(other) });
+    expect(await studioMetrics(page)).toEqual(before);
+  }
   await other.close();
   expect(await studioMetrics(page)).toEqual(before);
   await page.getByRole("button", { name: "Page 2", exact: true }).click();
@@ -130,22 +139,31 @@ test("the built studio loads its own CSS and resists every landing stylesheet", 
   });
 });
 
-test("the built landing loads its own CSS and resists every studio stylesheet", async ({
-  page,
-}, info) => {
-  await mockStudio(page.context());
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/?lang=ru");
-  await expect(page.locator(".lp-hero")).toBeVisible();
-  await expect(page.locator("html")).toHaveAttribute("data-surface", "landing");
-  const ownStyles = await styles(page);
-  expect(ownStyles).toContain(".lp-hero");
-  expect(ownStyles).not.toContain(".editor-shell");
-  async function metrics() {
-    await settle(page);
-    return page.evaluate(() =>
-      [".landing", ".lp-header", "h1", ".lp-hero .lp-cta", ".lp-hero-art"].map(
-        (selector) => {
+for (const landing of ["/", "/landing-v2", "/landing-archive"]) {
+  test(`the built ${landing} loads its own CSS and resists the studio and other landing versions`, async ({
+    page,
+  }, info) => {
+    await mockStudio(page.context());
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(landing + "?lang=ru");
+    await expect(page.locator(".lp-hero")).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-surface",
+      "landing",
+    );
+    const ownStyles = await styles(page);
+    expect(ownStyles).toContain(".lp-hero");
+    expect(ownStyles).not.toContain(".editor-shell");
+    async function metrics() {
+      await settle(page);
+      return page.evaluate(() =>
+        [
+          ".landing",
+          ".lp-header",
+          "h1",
+          ".lp-hero .lp-cta",
+          ".lp-hero-art",
+        ].map((selector) => {
           const element = document.querySelector(selector),
             rect = element.getBoundingClientRect(),
             style = getComputedStyle(element);
@@ -159,18 +177,25 @@ test("the built landing loads its own CSS and resists every studio stylesheet", 
             color: style.color,
             background: style.backgroundColor,
           };
-        },
-      ),
-    );
-  }
-  const before = await metrics();
-  const other = await page.context().newPage();
-  await other.goto("/studio");
-  await expect(other.locator(".cabinet")).toBeVisible();
-  await page.addStyleTag({ content: await styles(other) });
-  await other.close();
-  expect(await metrics()).toEqual(before);
-  await page.screenshot({
-    path: info.outputPath("isolated-production-landing.png"),
+        }),
+      );
+    }
+    const before = await metrics();
+    const other = await page.context().newPage();
+    await other.goto("/studio");
+    await expect(other.locator(".cabinet")).toBeVisible();
+    await page.addStyleTag({ content: await styles(other) });
+    for (const path of ["/", "/landing-v2", "/landing-archive"]) {
+      if (path === landing) continue;
+      await other.goto(path + "?lang=ru");
+      await expect(other.locator(".lp-hero")).toBeVisible();
+      await page.addStyleTag({ content: await styles(other) });
+      expect(await metrics()).toEqual(before);
+    }
+    await other.close();
+    expect(await metrics()).toEqual(before);
+    await page.screenshot({
+      path: info.outputPath("isolated-production-landing.png"),
+    });
   });
-});
+}
