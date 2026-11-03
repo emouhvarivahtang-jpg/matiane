@@ -1,0 +1,32 @@
+{
+  "hard-40": {
+    "leaves": 20,
+    "coverThickness": 0.038,
+    "pageInset": 0.045
+  },
+  "hard-60": {
+    "leaves": 30,
+    "coverThickness": 0.038,
+    "pageInset": 0.045
+  },
+  "hard-80": {
+    "leaves": 40,
+    "coverThickness": 0.038,
+    "pageInset": 0.045
+  },
+  "soft-40": {
+    "leaves": 20,
+    "coverThickness": 0.007,
+    "pageInset": 0.004
+  },
+  "soft-60": {
+    "leaves": 30,
+    "coverThickness": 0.007,
+    "pageInset": 0.004
+  },
+  "soft-80": {
+    "leaves": 40,
+    "coverThickness": 0.007,
+    "pageInset": 0.004
+  }
+}

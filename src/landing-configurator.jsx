@@ -2,11 +2,11 @@ import React, { useState } from "react";
 import { catalogText, landingText } from "./landing-text";
 import { BOOK_PRICES, BOOK_PAGE_OPTIONS, bookPrice } from "./landing-catalog";
 import "./landing-configurator.css";
+import { BookPreview } from "./landing-book-preview";
 
 export function BookConfigurator({
   language,
   register,
-  samplePrefix = "book-classic",
   actionLabel,
 }) {
   const [cover, setCover] = useState("hard");
@@ -16,8 +16,6 @@ export function BookConfigurator({
   const price = bookPrice(cover, pages);
   const priceLabel = (value) => `${value} ₾`;
   const selection = `${c[cover]}, ${pages} ${c.pageUnit}`;
-  // A schematic material preview, never a printing-spine measurement.
-  const depth = (pages - 40) / 2 + (cover === "hard" ? 18 : 10);
   return (
     <section
       id="book-options"
@@ -33,30 +31,8 @@ export function BookConfigurator({
         data-cover={cover}
         data-pages={pages}
         aria-label={`${c.model}: ${selection}`}
-        style={{
-          "--book-depth": `${depth}px`,
-          "--cover-board": cover === "hard" ? "4px" : "1px",
-          "--page-inset": cover === "hard" ? "9px" : "1px",
-        }}
       >
-        <div className="lp-book-scene" aria-hidden="true">
-          <div className="lp-book-object">
-            <div className="lp-book-back" />
-            <div className="lp-book-leaves" />
-            <div className="lp-book-top" />
-            <div className="lp-book-bottom" />
-            <div className="lp-book-front">
-              <img
-                src={`/landing/${samplePrefix}-cover-${language}.webp`}
-                alt=""
-                width="1100"
-                height="1382"
-                loading="lazy"
-              />
-            </div>
-            <div className="lp-book-spine" />
-          </div>
-        </div>
+        <BookPreview cover={cover} pages={pages} language={language} />
         <figcaption>
           <span>{selection}</span>
           <span>{c.size}</span>

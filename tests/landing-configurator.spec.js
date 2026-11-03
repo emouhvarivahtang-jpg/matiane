@@ -59,10 +59,6 @@ test("the six supplied prices in GEL match the selected cover and pages, and the
     model = section.locator(".lp-book-model");
   await section.scrollIntoViewIfNeeded();
   await expect(section.locator("output")).toHaveText("100 ₾");
-  const hardInset = await model.evaluate((element) =>
-    parseFloat(getComputedStyle(element).getPropertyValue("--page-inset")),
-  );
-  let depth40, depth80;
   for (const [cover, pages, price] of [
     ["Твёрдая", 40, 100],
     ["Твёрдая", 60, 140],
@@ -81,24 +77,10 @@ test("the six supplied prices in GEL match the selected cover and pages, and the
       cover === "Твёрдая" ? "hard" : "soft",
     );
     await expect(model).toHaveAttribute("data-pages", String(pages));
-    if (cover === "Твёрдая" && pages === 40)
-      depth40 = await model.evaluate((element) =>
-        parseFloat(getComputedStyle(element).getPropertyValue("--book-depth")),
-      );
-    if (cover === "Твёрдая" && pages === 80)
-      depth80 = await model.evaluate((element) =>
-        parseFloat(getComputedStyle(element).getPropertyValue("--book-depth")),
-      );
+    await expect(model.locator(".lp-book-poster")).toHaveAttribute(
+      "src", `/landing/models/${cover === "Твёрдая" ? "hard" : "soft"}-${pages}-ru.webp`,
+    );
   }
-  expect(depth80).toBeGreaterThan(depth40);
-  expect(
-    await model
-      .locator(".lp-book-front")
-      .evaluate((element) => getComputedStyle(element).borderRadius),
-  ).toBe("0px");
-  expect(await model.evaluate((element) =>
-    parseFloat(getComputedStyle(element).getPropertyValue("--page-inset")),
-  )).toBeLessThan(hardInset);
   await section.locator("summary").click();
   expect(
     await section

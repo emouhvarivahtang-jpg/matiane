@@ -9,7 +9,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run && node --test server/*.test.js",
     "test:e2e": "playwright test",
-    "test:production": "npm run build && MATIANE_TEST_BUILD=1 playwright test tests/surface-isolation.spec.js tests/editor-viewport.spec.js tests/landing.spec.js tests/landing-configurator.spec.js tests/landing-variants.spec.js",
+    "test:production": "npm run build && MATIANE_TEST_BUILD=1 playwright test tests/surface-isolation.spec.js tests/editor-viewport.spec.js tests/landing.spec.js tests/landing-configurator.spec.js tests/landing-variants.spec.js tests/landing-book.spec.js",
     "dev:server": "node --watch server/index.js",
     "start:server": "node server/index.js",
     "test:server": "node --test server/*.test.js"
@@ -21,7 +21,8 @@
     "pdf-lib": "1.17.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "sharp": "0.35.5"
+    "sharp": "0.35.5",
+    "three": "0.180.0"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",

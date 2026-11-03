@@ -772,13 +772,9 @@ body {
   white-space: normal;
   text-align: center;
 }
-.landing-v2 .lp-book-scene {
-  border: 1px solid #e4dece;
-}
 @media (min-width: 741px) and (max-width: 1000px) {
   .landing-v2 .lp-book-model { grid-column: 1/7; }
   .landing-v2 .lp-configurator-controls { grid-column: 7/-1; padding: 20px; }
-  .landing-v2 .lp-book-object { width: 220px; }
 }
 @media (max-width: 740px) {
   .lp-header { gap: 12px; }
@@ -788,7 +784,7 @@ body {
   .v2-hero-layout { gap: 28px; }
   .lp-hero-art { aspect-ratio: 1/1.08; }
   .landing-v2 .lp-configurator-controls { padding: 24px 20px; }
-  .landing-v2 .lp-book-scene { height: 300px; }
+  .landing-v2 .lp-book-scene { height: 320px; }
   .landing-v2 .lp-book-model { padding: 0; }
   .landing-v2 .lp-configurator { gap: 28px; }
   .lp-price-matrix summary { min-height: 44px; }
