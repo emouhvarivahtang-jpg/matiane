@@ -1,4 +1,4 @@
-# Matiane surface isolation
+# verso surface isolation
 
 The public landing and the photo-book studio are independent product surfaces.
 Changes to one must never change the layout, typography, controls, or behavior
@@ -27,14 +27,21 @@ of the other. This is an explicit user requirement.
 ## Landing design and content
 
 The user rejected the asymmetric photo-journal design. This supersedes the earlier
-editorial direction. Keep the palette, but use clear classical hierarchy, aligned
+editorial direction for the main page. Keep clear classical hierarchy, aligned
 sections and a visible photo book and action. The exact Russian proposition is
 “Перенесите воспоминания из ленты телефона в книгу”, translated into KA and EN.
 
 - `/`: classical landing v2, promoted to the main site by user request.
 - `/landing-v2`: retained alias of the main classical landing.
+- `/designs`: comparison gallery requested by the user.
+- `/designs/{folio,grove,signal,noir,bloom}`: five explicitly requested visual
+  directions with different palettes, typography and composition. They share
+  the approved v2 JSX, copy, prices and book card. No winner has been selected;
+  keep the current main palette until the user chooses. Theme CSS stays inside
+  the v2 surface and a matching `data-design` selector.
 - `/landing-archive`: frozen photo-journal version from `2d2097f`, including its
-  own JSX, CSS, copy and catalog. Do not silently redesign the archive.
+  own JSX, CSS, copy and catalog. Only the authorized brand rename and updated
+  studio screenshots differ. Do not silently redesign the archive.
 
 Keep separate lazy callbacks and CSS guards for each variant. The HTML attribute
 `data-landing-version` confines variant styles in addition to `data-surface`.
@@ -44,7 +51,12 @@ No FAQ or helper slogans under buttons. Hallmark is under `.agents/skills/hallma
 
 The user explicitly requested Georgian, English, Russian as the language-picker
 order everywhere; the studio picker deliberately follows that same order.
-This ordering is the sole intentional studio change in the landing redesign.
+The user subsequently renamed the product to lowercase `verso` everywhere.
+Visible brand copy, export metadata, favicon and picker labels follow that name.
+The studio layout and behavior stay unchanged. Preserve existing storage keys,
+cookies, font family/file identifiers, API/transfer protocols, old file imports
+and deployed origins; they are compatibility identifiers, not visible branding.
+Never rename customer book titles or saved content as part of this rebrand.
 New landing visitors default to Georgian, with explicit URL and saved choices respected.
 Prices are in Georgian lari: hardcover 40/60/80 pages costs 100/140/190;
 softcover costs 80/110/150. These are user-supplied commercial facts. Do not

@@ -10,25 +10,30 @@ const studio =
   parameters.has("auth") ||
   location.origin === "http://57.129.177.67";
 document.documentElement.dataset.surface = studio ? "studio" : "landing";
-const landingVersion = /^\/landing-archive(?:\/|$)/.test(location.pathname)
-  ? "archive"
-  : /^\/landing-v2(?:\/|$)/.test(location.pathname)
-    ? "v2"
-    : "v2";
+const landingVersion = /^\/designs\/?$/.test(location.pathname)
+  ? "designs"
+  : /^\/landing-archive(?:\/|$)/.test(location.pathname)
+    ? "archive"
+    : /^\/landing-v2(?:\/|$)/.test(location.pathname)
+      ? "v2"
+      : "v2";
 if (!studio) document.documentElement.dataset.landingVersion = landingVersion;
 // Separate loader callbacks are essential: Vite 6 attaches the wrong CSS
 // dependency list to a conditional import inside a single lazy callback.
 const Studio = lazy(() => import("./main.jsx"));
 const Landing = lazy(() => import("./landing.jsx"));
 const LandingV2 = lazy(() => import("./landing-v2.jsx"));
+const LandingDesigns = lazy(() => import("./landing-designs.jsx"));
 const LandingArchive = lazy(() => import("./landing-archive.jsx"));
 const Screen = studio
   ? Studio
-  : landingVersion === "archive"
-    ? LandingArchive
-    : landingVersion === "v2"
-      ? LandingV2
-      : Landing;
+  : landingVersion === "designs"
+    ? LandingDesigns
+    : landingVersion === "archive"
+      ? LandingArchive
+      : landingVersion === "v2"
+        ? LandingV2
+        : Landing;
 
 createRoot(document.getElementById("root")).render(
   <Suspense
@@ -42,7 +47,7 @@ createRoot(document.getElementById("root")).render(
         }}
         role="status"
       >
-        Matiane · მატიანე
+        verso
       </div>
     }
   >

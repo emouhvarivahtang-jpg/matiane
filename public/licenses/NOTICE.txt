@@ -1,4 +1,4 @@
-Matiane uses heic-to 1.6.5 (LGPL-3.0-or-later) for HEIC decoding,
+verso uses heic-to 1.6.5 (LGPL-3.0-or-later) for HEIC decoding,
 with libheif 1.23.5 and libde265 1.0.16 (LGPL-2.1-or-later).
 
 Licenses supplied alongside this notice:

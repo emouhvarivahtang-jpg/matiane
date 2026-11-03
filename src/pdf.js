@@ -67,7 +67,7 @@ export async function exportPdf(
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   doc.setTitle(book.title);
-  doc.setAuthor("Matiane");
+  doc.setAuthor("verso");
   const format = bookFormat(book);
   doc.setSubject(
     `${format.w} × ${format.h} mm photo book • ${layout} • RGB • separate full cover with spine`,

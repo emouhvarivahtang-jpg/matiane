@@ -1,9 +1,9 @@
 // Restored first design, with all subsequently approved copy and prices.
 export const landingText = {
   ka: {
-    title: "მატიანე — შეინახეთ ძვირფასი მოგონებები",
+    title: "verso — შეინახეთ ძვირფასი მოგონებები",
     description:
-      "შექმენით ფოტოწიგნი საყვარელი ფოტოებით. შეინახეთ ოჯახური მოგონებები თქვენთვის ან აჩუქეთ ძვირფას ადამიანს — მატიანესთან ერთად.",
+      "შექმენით ფოტოწიგნი საყვარელი ფოტოებით. შეინახეთ ოჯახური მოგონებები თქვენთვის ან აჩუქეთ ძვირფას ადამიანს — verso-სთან ერთად.",
     skip: "შინაარსზე გადასვლა",
     navigation: "ნავიგაცია",
     language: "ენა",
@@ -91,9 +91,9 @@ export const landingText = {
     pricing: "წიგნები და ფასები",
   },
   en: {
-    title: "Matiane — Keep your favourite moments close",
+    title: "verso — Keep your favourite moments close",
     description:
-      "Turn your favourite photographs into a beautiful photo book. Keep your family's memories close or make a meaningful gift for someone you love with Matiane.",
+      "Turn your favourite photographs into a beautiful photo book. Keep your family's memories close or make a meaningful gift for someone you love with verso.",
     skip: "Skip to content",
     navigation: "Navigation",
     language: "Language",
@@ -181,9 +181,9 @@ export const landingText = {
     pricing: "Books & prices",
   },
   ru: {
-    title: "Matiane — Самое дорогое между страницами",
+    title: "verso — Самое дорогое между страницами",
     description:
-      "Соберите любимые фотографии в красивую фотокнигу. Сохраните семейные воспоминания для себя или создайте особенный подарок близким с Matiane.",
+      "Соберите любимые фотографии в красивую фотокнигу. Сохраните семейные воспоминания для себя или создайте особенный подарок близким с verso.",
     skip: "Перейти к содержимому",
     navigation: "Навигация",
     language: "Язык",

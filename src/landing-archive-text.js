@@ -59,7 +59,7 @@ export const journalText = {
     moments: "ჩვეულებრივი დღეებიც ძვირფასია.",
     bicycle: "მშობელი ზამთარში ბავშვებს ველოსიპედით ასეირნებს",
     studioAlt:
-      "მატიანეს ნამდვილი რედაქტორი: ფოტოები მარცხნივ, გაშლა ცენტრში და ხელსაწყოები მარჯვნივ",
+      "verso-ს ნამდვილი რედაქტორი: ფოტოები მარცხნივ, გაშლა ცენტრში და ხელსაწყოები მარჯვნივ",
     studioCaption: "ყველა ცვლილებას მაშინვე ხედავთ გაშლაზე.",
     final: "რომელი ფოტოთი დაიწყება თქვენი წიგნი?",
     credits: "მაგალითის ფოტოები:",
@@ -76,7 +76,7 @@ export const journalText = {
     moments: "The ordinary days, too.",
     bicycle: "A parent taking children on a cargo bike in winter",
     studioAlt:
-      "The actual Matiane editor: photos on the left, a spread in the centre, editing tools on the right",
+      "The actual verso editor: photos on the left, a spread in the centre, editing tools on the right",
     studioCaption: "Every change appears straight on the spread.",
     final: "Which photograph will start your book?",
     credits: "Example photographs:",
@@ -92,7 +92,7 @@ export const journalText = {
     moments: "Не только особенные дни.",
     bicycle: "Родитель везёт детей на велосипеде зимой",
     studioAlt:
-      "Настоящий редактор Matiane: фотографии слева, разворот в центре и инструменты справа",
+      "Настоящий редактор verso: фотографии слева, разворот в центре и инструменты справа",
     studioCaption: "Всё, что меняете, сразу видно на развороте.",
     final: "С какой фотографии начнётся ваша книга?",
     credits: "Фотографии для примера:",
@@ -101,9 +101,9 @@ export const journalText = {
 
 export const landingText = {
   ka: {
-    title: "მატიანე — შეინახეთ ძვირფასი მოგონებები",
+    title: "verso — შეინახეთ ძვირფასი მოგონებები",
     description:
-      "შექმენით ფოტოწიგნი საყვარელი ფოტოებით. შეინახეთ ოჯახური მოგონებები თქვენთვის ან აჩუქეთ ძვირფას ადამიანს — მატიანესთან ერთად.",
+      "შექმენით ფოტოწიგნი საყვარელი ფოტოებით. შეინახეთ ოჯახური მოგონებები თქვენთვის ან აჩუქეთ ძვირფას ადამიანს — verso-სთან ერთად.",
     skip: "შინაარსზე გადასვლა",
     navigation: "ნავიგაცია",
     language: "ენა",
@@ -163,9 +163,9 @@ export const landingText = {
     rights: "თქვენი საყვარელი ისტორიებისთვის.",
   },
   en: {
-    title: "Matiane — Keep your favourite moments close",
+    title: "verso — Keep your favourite moments close",
     description:
-      "Turn your favourite photographs into a beautiful photo book. Keep your family's memories close or make a meaningful gift for someone you love with Matiane.",
+      "Turn your favourite photographs into a beautiful photo book. Keep your family's memories close or make a meaningful gift for someone you love with verso.",
     skip: "Skip to content",
     navigation: "Navigation",
     language: "Language",
@@ -225,9 +225,9 @@ export const landingText = {
     rights: "Made for the stories you love.",
   },
   ru: {
-    title: "Matiane — Самое дорогое между страницами",
+    title: "verso — Самое дорогое между страницами",
     description:
-      "Соберите любимые фотографии в красивую фотокнигу. Сохраните семейные воспоминания для себя или создайте особенный подарок близким с Matiane.",
+      "Соберите любимые фотографии в красивую фотокнигу. Сохраните семейные воспоминания для себя или создайте особенный подарок близким с verso.",
     skip: "Перейти к содержимому",
     navigation: "Навигация",
     language: "Язык",

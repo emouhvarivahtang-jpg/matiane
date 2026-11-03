@@ -20,7 +20,7 @@ license, including commercial printed books and PDF exports.
 ## Current text controls
 
 The English/Russian selector offers Montserrat, Manrope, Lora, Cormorant Garamond,
-Playfair Display, PT Serif, Alegreya, Caveat, Marck Script and Bad Script. The renamed Lora and Playfair derivatives appear as Matiane Book Serif and Matiane Display in the picker. Source:
+Playfair Display, PT Serif, Alegreya, Caveat, Marck Script and Bad Script. The renamed Lora and Playfair derivatives appear as verso Book Serif and verso Display in the picker (their existing internal Matiane names are retained for saved-book compatibility). Source:
 https://github.com/google/fonts/tree/main/ofl/<family>. Each family has its own
 `<family>-OFL.txt` here, SIL Open Font License 1.1. Static 400/700 instances of
 variable families are produced with fontTools varLib.instancer and internally

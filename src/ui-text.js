@@ -32,8 +32,8 @@ const extra = {
     aiUsageTbilisi: "Tbilisi",
     aiUsageAllowance:
       "Cloudflare gives {free} free neurons per day and enforces the limits of your plan. Active job estimates are shown separately.",
-    aiUsageNoLimit: "Matiane has no daily neuron limit.",
-    aiUsageConfiguredLimit: "Configured Matiane ceiling: {limit} neurons.",
+    aiUsageNoLimit: "verso has no daily neuron limit.",
+    aiUsageConfiguredLimit: "Configured verso ceiling: {limit} neurons.",
     aiUsageLimitReached:
       "The estimated free allowance is used up. Cloudflare may stop AI requests until the daily reset, depending on your plan. Books and manual editing remain available.",
     aiUsageRecent: "Recent assemblies",
@@ -48,7 +48,7 @@ const extra = {
     aiUsageInterrupted: "Interrupted",
     aiUsageNoRuns: "New assemblies and their cost will appear here.",
     aiUsageScope:
-      "Matiane usage only. Other requests in your Cloudflare account are not included. ≈ marks a conservative estimate after an interrupted request; the Cloudflare total may be lower.",
+      "verso usage only. Other requests in your Cloudflare account are not included. ≈ marks a conservative estimate after an interrupted request; the Cloudflare total may be lower.",
     aiUsageDashboard: "Cloudflare account usage",
     localImportProgress: "Saving your local books in your account…",
     localImportDone: "Your local books are saved in your account.",
@@ -229,8 +229,8 @@ const extra = {
     aiUsageTbilisi: "Тбилиси",
     aiUsageAllowance:
       "Cloudflare даёт {free} бесплатных neurons в сутки и применяет ограничения вашего тарифа. Оценки текущих сборок показаны отдельно.",
-    aiUsageNoLimit: "У Matiane нет дневного ограничения neurons.",
-    aiUsageConfiguredLimit: "Настроенный предел Matiane: {limit} neurons.",
+    aiUsageNoLimit: "У verso нет дневного ограничения neurons.",
+    aiUsageConfiguredLimit: "Настроенный предел verso: {limit} neurons.",
     aiUsageLimitReached:
       "По оценке бесплатный объём исчерпан. В зависимости от тарифа Cloudflare может остановить AI до обновления лимита. Книги и ручное редактирование остаются доступны.",
     aiUsageRecent: "Последние сборки",
@@ -245,7 +245,7 @@ const extra = {
     aiUsageInterrupted: "Прервано",
     aiUsageNoRuns: "Здесь появятся новые сборки и их стоимость.",
     aiUsageScope:
-      "Здесь только расход Matiane. Другие запросы вашего аккаунта Cloudflare не учитываются. ≈ — оценка с запасом после прерванного запроса; реальный расход Cloudflare может быть ниже.",
+      "Здесь только расход verso. Другие запросы вашего аккаунта Cloudflare не учитываются. ≈ — оценка с запасом после прерванного запроса; реальный расход Cloudflare может быть ниже.",
     aiUsageDashboard: "Расход всего аккаунта Cloudflare",
     localImportProgress: "Сохраняем локальные книги в ваш аккаунт…",
     localImportDone: "Локальные книги сохранены в вашем аккаунте.",
@@ -465,7 +465,7 @@ const extra = {
     close: "Закрыть",
     uploadBusy: "Добавляем фотографии…",
     importError:
-      "Не удалось открыть проект. Выберите файл Matiane размером до 200 МБ.",
+      "Не удалось открыть проект. Выберите файл verso размером до 200 МБ.",
     exportError: "Не удалось создать PDF. Попробуйте ещё раз.",
     storageError: "Сохранение на устройстве недоступно. Скачайте проект.",
     projectSaved: "Проект скачан вместе с фотографиями.",
@@ -514,8 +514,8 @@ const extra = {
     aiUsageTbilisi: "თბილისი",
     aiUsageAllowance:
       "Cloudflare დღეში {free} უფასო neurons-ს იძლევა და თქვენი ტარიფის შეზღუდვებს იყენებს. მიმდინარე აწყობების შეფასებები ცალკეა ნაჩვენები.",
-    aiUsageNoLimit: "Matiane-ს neurons-ის დღიური ლიმიტი არ აქვს.",
-    aiUsageConfiguredLimit: "Matiane-ს დაყენებული ზღვარი: {limit} neurons.",
+    aiUsageNoLimit: "verso-ს neurons-ის დღიური ლიმიტი არ აქვს.",
+    aiUsageConfiguredLimit: "verso-ს დაყენებული ზღვარი: {limit} neurons.",
     aiUsageLimitReached:
       "შეფასებით უფასო რესურსი ამოიწურა. ტარიფის მიხედვით Cloudflare-მ შესაძლოა AI დღიურ განახლებამდე შეაჩეროს. წიგნები და ხელით რედაქტირება ხელმისაწვდომია.",
     aiUsageRecent: "ბოლო აწყობები",
@@ -530,7 +530,7 @@ const extra = {
     aiUsageInterrupted: "შეწყვეტილია",
     aiUsageNoRuns: "ახალი აწყობები და მათი ღირებულება აქ გამოჩნდება.",
     aiUsageScope:
-      "ნაჩვენებია მხოლოდ Matiane-ს მოხმარება. Cloudflare-ის ანგარიშის სხვა მოთხოვნები არ ითვლება. ≈ ნიშნავს შეწყვეტილი მოთხოვნის სარეზერვო შეფასებას; რეალური მოხმარება შესაძლოა ნაკლები იყოს.",
+      "ნაჩვენებია მხოლოდ verso-ს მოხმარება. Cloudflare-ის ანგარიშის სხვა მოთხოვნები არ ითვლება. ≈ ნიშნავს შეწყვეტილი მოთხოვნის სარეზერვო შეფასებას; რეალური მოხმარება შესაძლოა ნაკლები იყოს.",
     aiUsageDashboard: "Cloudflare-ის ანგარიშის მოხმარება",
     localImportProgress: "ლოკალური წიგნები თქვენს ანგარიშში ინახება…",
     localImportDone: "ლოკალური წიგნები თქვენს ანგარიშში შენახულია.",

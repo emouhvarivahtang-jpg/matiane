@@ -4,6 +4,8 @@ import { journalText } from "./landing-text";
 import { initialLandingLanguage } from "./landing-language";
 import { BookConfigurator } from "./landing-configurator";
 import "./landing-v2.css";
+import "./landing-themes.css";
+import { currentLandingTheme } from "./landing-theme-catalog";
 
 function Flower() {
   return (
@@ -67,6 +69,7 @@ const headlineLines = {
 };
 
 export default function LandingV2() {
+  const design = currentLandingTheme();
   const [language, setLanguage] = useState(initialLandingLanguage);
   const [sample, setSample] = useState(0);
   const t = landingText[language],
@@ -79,12 +82,15 @@ export default function LandingV2() {
     document.documentElement.lang = language;
     document.title = t.title;
     document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", design?.colors[0] || "#faf8f2");
+    document
       .querySelector('meta[name="description"]')
       ?.setAttribute("content", t.description);
     try {
       localStorage.setItem("matiane-language", language);
     } catch {}
-  }, [language, t]);
+  }, [language, t, design]);
   function changeLanguage(next) {
     setLanguage(next);
     const url = new URL(location.href);
@@ -97,7 +103,7 @@ export default function LandingV2() {
   const logo = (
     <>
       <span className="lp-logotype">
-        {language === "ka" ? "მატიანე" : "matiane"}
+        verso
       </span>
       <Flower />
     </>
@@ -108,12 +114,12 @@ export default function LandingV2() {
     </a>
   );
   return (
-    <div className="landing landing-v2" data-language={language}>
+    <div className="landing landing-v2" data-language={language} data-design={design?.id || "classic"}>
       <a className="lp-skip" href="#main">
         {t.skip}
       </a>
       <header className="lp-header lp-container">
-        <a className="lp-logo" href={`/?lang=${language}`} aria-label="Matiane">
+        <a className="lp-logo" href={`${design ? `/designs/${design.id}` : "/"}?lang=${language}`} aria-label="verso">
           {logo}
         </a>
         <nav aria-label={t.navigation}>
@@ -272,7 +278,7 @@ export default function LandingV2() {
             </ol>
             <figure className="v2-studio-proof" data-kind="product">
               <img
-                src={`/landing/studio-journal-${language}.webp`}
+                src={`/landing/studio-verso-${language}.webp`}
                 alt={j.studioAlt}
                 width="1600"
                 height="1054"
@@ -311,7 +317,7 @@ export default function LandingV2() {
       <footer className="lp-footer lp-container">
         <div className="v2-footer-main">
           <div>
-            <a className="lp-logo" href={`/?lang=${language}`} aria-label="Matiane">
+            <a className="lp-logo" href={`${design ? `/designs/${design.id}` : "/"}?lang=${language}`} aria-label="verso">
               {logo}
             </a>
             <p>{t.footer}</p>
@@ -319,7 +325,7 @@ export default function LandingV2() {
           <a href={studio}>{t.studio}</a>
         </div>
         <div className="v2-footer-bottom">
-          <span>© {new Date().getFullYear()} Matiane</span>
+          <span>© {new Date().getFullYear()} verso</span>
           <span>{t.rights}</span>
         </div>
         <p className="v2-photo-credits" data-credits>

@@ -209,7 +209,7 @@ export default function Landing() {
   const logo = (
     <>
       <span className="lp-logotype">
-        {language === "ka" ? "მატიანე" : "matiane"}
+        verso
       </span>
       <Flower />
     </>
@@ -220,7 +220,7 @@ export default function Landing() {
         {t.skip}
       </a>
       <header className="lp-header lp-container">
-        <a className="lp-logo" href="/" aria-label="Matiane">
+        <a className="lp-logo" href="/" aria-label="verso">
           {logo}
         </a>
         <nav aria-label={t.navigation}>
@@ -337,7 +337,7 @@ export default function Landing() {
           </div>
           <figure className="lp-studio-proof">
             <img
-              src={`/landing/studio-journal-${language}.webp`}
+              src={`/landing/studio-verso-${language}.webp`}
               alt={j.studioAlt}
               width="1600"
               height="1054"
@@ -410,11 +410,11 @@ export default function Landing() {
           <p>{t.footer}</p>
           <a href={studio}>{t.studio}</a>
         </div>
-        <a className="lp-logo lp-footer-masthead" href="/" aria-label="Matiane">
+        <a className="lp-logo lp-footer-masthead" href="/" aria-label="verso">
           {logo}
         </a>
         <div className="lp-footer-bottom">
-          <span>© {new Date().getFullYear()} Matiane</span>
+          <span>© {new Date().getFullYear()} verso</span>
           <span>{t.rights}</span>
         </div>
         <p className="lp-credits">

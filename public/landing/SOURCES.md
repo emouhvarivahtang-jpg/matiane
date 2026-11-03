@@ -64,3 +64,14 @@ with the existing example photographs and synthetic demonstration books. These
 are layout samples, not photographs of delivered printed books. No customer
 account, photo or book was used. The v2 travel scenario uses the existing CC0
 shore photograph by Jebulon, credited in the footer.
+
+## verso visual directions
+
+`studio-verso-{ka,en,ru}.webp` are fresh captures of the real editor using the
+existing CC0 journal photographs and a synthetic book named verso. They replace
+the screenshots with the old sample title. Old image paths remain available
+for cached bundles; customer books and photographs were not accessed.
+
+`designs/{folio,grove,signal,noir,bloom}-{ka,en,ru}.webp` are actual browser
+captures of the five alternative landing designs. They reuse the same approved
+copy and licensed images. Regenerate with `tools/capture-landing-designs.mjs`.

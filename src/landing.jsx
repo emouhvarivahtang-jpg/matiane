@@ -104,7 +104,7 @@ export default function Landing() {
   const logo = (
     <>
       <span className="lp-logotype">
-        {language === "ka" ? "მატიანე" : "matiane"}
+        verso
       </span>
       <Flower />
     </>
@@ -115,7 +115,7 @@ export default function Landing() {
         {t.skip}
       </a>
       <header className="lp-header lp-container">
-        <a className="lp-logo" href="/" aria-label="Matiane">
+        <a className="lp-logo" href="/" aria-label="verso">
           {logo}
         </a>
         <nav aria-label={t.navigation}>
@@ -157,7 +157,7 @@ export default function Landing() {
             <div className="lp-art-halo" />
             <div className="lp-back-book" aria-hidden="true">
               <span>{t.cover}</span>
-              <small>MATIANE</small>
+              <small>verso</small>
               <Flower />
             </div>
             <div className="lp-open-book">
@@ -266,7 +266,7 @@ export default function Landing() {
                         height="800"
                         loading="lazy"
                       />
-                      <small>MATIANE</small>
+                      <small>verso</small>
                     </div>
                     <span className="lp-occasion-tag">{item.label}</span>
                   </div>
@@ -325,7 +325,7 @@ export default function Landing() {
               <div className="lp-detail-cover">
                 <Flower />
                 <span>{t.cover}</span>
-                <small>MATIANE</small>
+                <small>verso</small>
               </div>
               <div className="lp-detail-spread">
                 <div>
@@ -370,7 +370,7 @@ export default function Landing() {
       </main>
       <footer className="lp-footer lp-container">
         <div>
-          <a className="lp-logo" href="/" aria-label="Matiane">
+          <a className="lp-logo" href="/" aria-label="verso">
             {logo}
           </a>
           <p>{t.footer}</p>
@@ -381,7 +381,7 @@ export default function Landing() {
             <Arrow />
           </a>
           <span>
-            © {new Date().getFullYear()} Matiane. {t.rights}
+            © {new Date().getFullYear()} verso. {t.rights}
           </span>
         </div>
       </footer>

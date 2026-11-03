@@ -834,9 +834,9 @@ export default function App() {
     setFuture((f) => f.slice(0, -1));
   }
   const filename = () =>
-    (book?.title || "Matiane")
+    (book?.title || "verso")
       .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "")
-      .slice(0, 80) || "Matiane";
+      .slice(0, 80) || "verso";
   async function importProject(file) {
     if (!file) return;
     setBusy(true);
@@ -1060,10 +1060,10 @@ export default function App() {
         disabled={busy || uploading}
       >
         <span className="brand-mark">
-          m<span>✳</span>
+          v<span>✳</span>
         </span>
         <span>
-          {language === "ka" ? "მატიანე" : "matiane"}
+          verso
           <small>{t.tagline}</small>
         </span>
       </button>
@@ -1156,7 +1156,7 @@ export default function App() {
         <main className="cabinet">
           <div className="cabinet-heading">
             <div>
-              <span className="eyebrow">MATIANE</span>
+              <span className="eyebrow">verso</span>
               <h1>{t.myBooks}</h1>
               <p>{t.welcome}</p>
             </div>
@@ -2043,7 +2043,7 @@ export default function App() {
       <input
         hidden
         type="file"
-        accept=".json,.matiane"
+        accept=".json,.verso,.matiane"
         ref={projectInput}
         onChange={(e) => {
           importProject(e.target.files[0]);

@@ -1194,7 +1194,7 @@ export async function createApp(options = {}) {
         );
       else res.end();
       if (!(error instanceof ApiError) && !(error instanceof AiError))
-        console.error("Matiane request failed:", error.code || error.name); // No payloads, credentials or user photographs.
+        console.error("verso request failed:", error.code || error.name); // No payloads, credentials or user photographs.
     }
   });
   server.requestTimeout = 120_000;
@@ -1258,7 +1258,7 @@ export async function createApp(options = {}) {
           () =>
             maintenance().catch((error) =>
               console.error(
-                "Matiane maintenance failed:",
+                "verso maintenance failed:",
                 error.code || error.name,
               ),
             ),
@@ -1286,11 +1286,11 @@ if (
 ) {
   const app = await createApp();
   app.server.listen(Number(process.env.PORT || 3000), "0.0.0.0", () => {
-    console.log("Matiane account server ready");
+    console.log("verso account server ready");
     app
       .dailyBackup()
       .catch((error) =>
-        console.error("Matiane backup failed:", error.code || error.name),
+        console.error("verso backup failed:", error.code || error.name),
       );
   });
   for (const signal of ["SIGTERM", "SIGINT"])

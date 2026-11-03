@@ -1,0 +1,247 @@
+/* Five visual directions share the exact same landing content and controls.
+   Every selector is also confined to the v2 surface by scope-ui-styles. */
+@font-face { font-family: Verso Modern; src: url('/fonts/NotoSans-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+@font-face { font-family: Verso Modern; src: url('/fonts/NotoSans-Bold.ttf') format('truetype'); font-weight: 700; font-display: swap; }
+@font-face { font-family: Verso Georgian; src: url('/fonts/NotoSansGeorgian-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+@font-face { font-family: Verso Georgian; src: url('/fonts/NotoSansGeorgian-Bold.ttf') format('truetype'); font-weight: 700; font-display: swap; }
+@font-face { font-family: Verso Contrast; src: url('/fonts/NotoSerif-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+@font-face { font-family: Verso Serif Georgian; src: url('/fonts/NotoSerifGeorgian-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+
+/* Keep the configurator inside each direction's palette. */
+.landing[data-design]:where(:not([data-design="classic"])) {
+  --catalog-color-paper: var(--color-paper);
+  --catalog-color-paper-2: var(--color-well);
+  --catalog-color-paper-3: var(--color-field);
+  --catalog-color-ink: var(--color-ink);
+  --catalog-color-muted: var(--color-muted);
+  --catalog-color-rule: var(--color-rule);
+  --catalog-color-focus: var(--color-focus);
+  --catalog-radius-control: var(--radius-control);
+}
+.landing[data-design]:where(:not([data-design="classic"])) .lp-configurator-controls { background: var(--color-well); border-color: var(--color-rule); border-radius: var(--radius-control); }
+.landing[data-design]:where(:not([data-design="classic"])) .lp-book-viewer { background: var(--color-well); border-color: var(--color-rule); border-radius: var(--radius-control); }
+.landing[data-design]:where(:not([data-design="classic"])) .lp-header select { background: var(--color-paper); color: var(--color-ink); }
+.landing[data-design]:where(:not([data-design="classic"])) .lp-choice span { border-color: var(--color-rule); }
+.landing[data-design]:where(:not([data-design="classic"])) .lp-choice input:checked + span { border-color: var(--color-ink); }
+
+/* 01 · FOLIO — a white gallery, centered type, red accents and hairline rules. */
+.landing[data-design="folio"] {
+  --color-paper: #f5f3ed; --color-well: #eeeae2; --color-field: #ebe7df;
+  --color-ink: #22211f; --color-muted: #68635d; --color-rule: #d1cbc2;
+  --color-accent: #c63f2b; --color-accent-hover: #a92b1b; --color-focus: #c63f2b;
+  --radius-control: 0px; --text-section: clamp(38px, 4vw, 58px);
+}
+.landing[data-design="folio"] .lp-logo svg { display: none; }
+.landing[data-design="folio"] .lp-logotype { font-size: 52px; letter-spacing: -3px; }
+.landing[data-design="folio"] .lp-header { height: 100px; }
+.landing[data-design="folio"] .v2-hero-layout { grid-template-columns: minmax(0, 1fr); gap: 36px; min-height: 0; padding-block: 60px 72px; }
+.landing[data-design="folio"] .lp-hero-copy { text-align: center; margin-inline: auto; }
+.landing[data-design="folio"] .lp-hero h1 { max-width: 1060px; font-size: clamp(48px, 5.5vw, 80px); line-height: 1.02; }
+.landing[data-design="folio"] .v2-head-line { display: inline; }
+.landing[data-design="folio"] .lp-intro { margin-inline: auto; max-width: 550px; }
+.landing[data-design="folio"] .v2-hero-actions { justify-content: center; margin-top: 26px; }
+.landing[data-design="folio"] .lp-hero-art { width: min(100%, 680px); height: 490px; aspect-ratio: auto; margin-inline: auto; }
+.landing[data-design="folio"] .lp-hero-art::before { inset: 0 0 8%; background: #ece7de; border-radius: 0; }
+.landing[data-design="folio"] .v2-cover-sample { width: 29%; top: 2%; right: 8%; transform: rotateZ(5deg); }
+.landing[data-design="folio"] .v2-open-sample { width: 80%; left: 5%; top: 9%; transform: rotateZ(-3deg); }
+.landing[data-design="folio"] .lp-preview-caption { padding-inline: 0; }
+.landing[data-design="folio"] .v2-occasion-photo, .landing[data-design="folio"] .v2-gift img, .landing[data-design="folio"] .v2-studio-proof img { border-radius: 0; }
+.landing[data-design="folio"] .lp-occasion h3 { border-top: 1px solid var(--color-rule); padding-top: 18px; }
+.landing[data-design="folio"] .v2-how { background: var(--color-paper); border-block: 1px solid var(--color-rule); }
+.landing[data-design="folio"] .lp-step-list li::before { color: var(--color-accent); font-style: italic; }
+.landing[data-design="folio"] .v2-studio-proof { max-width: 940px; padding: 20px; background: var(--color-field); }
+.landing[data-design="folio"] .lp-configurator-controls { border: 0; border-top: 2px solid var(--color-ink); padding: 28px 0 0; background: transparent; }
+.landing[data-design="folio"] .lp-book-viewer { border: 0; }
+.landing[data-design="folio"] .v2-gift { background: var(--color-field); }
+.landing[data-design="folio"] .v2-gift-layout { gap: 64px; }
+
+/* 02 · GROVE — olive paper, an arched product stage and soft forest green. */
+.landing[data-design="grove"] {
+  --color-paper: #e9eddf; --color-well: #dce3cf; --color-field: #d2df95;
+  --color-ink: #193f33; --color-muted: #536151; --color-rule: #bac7ad;
+  --color-accent: #193f33; --color-accent-hover: #2d5747; --color-focus: #315c34;
+  --radius-control: 28px; --text-section: clamp(38px, 3.8vw, 56px);
+}
+.landing[data-design="grove"] .lp-header { border-color: #b3c2a8; }
+.landing[data-design="grove"] .lp-logo svg { color: #718846; }
+.landing[data-design="grove"] .lp-nav-cta, .landing[data-design="grove"] .lp-cta { padding-inline: 32px; }
+.landing[data-design="grove"] .lp-hero { background: var(--color-paper); }
+.landing[data-design="grove"] .v2-hero-layout { padding-block: 72px 88px; min-height: 780px; gap: 64px; }
+.landing[data-design="grove"] .lp-hero h1 { font-size: clamp(48px, 5.2vw, 74px); }
+.landing[data-design="grove"] .lp-hero-art::before { inset: -5% -2% 5%; border-radius: 48% 48% 16px 16px; background: #cbd7b7; }
+.landing[data-design="grove"] .v2-cover-sample { right: 12%; top: 6%; transform: rotateZ(7deg); }
+.landing[data-design="grove"] .v2-open-sample { width: 90%; top: 20%; left: 3%; transform: rotateZ(-7deg); }
+.landing[data-design="grove"] .v2-occasions { border-top: 0; }
+.landing[data-design="grove"] .v2-heading { max-width: 700px; }
+.landing[data-design="grove"] .v2-occasion-photo { border-radius: 48% 48% 12px 12px; aspect-ratio: 1 / 1.08; }
+.landing[data-design="grove"] .lp-occasion h3 { text-align: center; }
+.landing[data-design="grove"] .lp-occasion > p { text-align: center; padding-inline: 14px; }
+.landing[data-design="grove"] .v2-how { background: #d8e0cb; }
+.landing[data-design="grove"] .lp-step-list li { border: 0; padding: 28px; background: #eaf0df; border-radius: 24px; }
+.landing[data-design="grove"] .lp-step-list li::before { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: #cedc9b; font-size: 32px; }
+.landing[data-design="grove"] .v2-studio-proof img { border-radius: 18px; }
+.landing[data-design="grove"] .lp-book-viewer { border-radius: 160px 160px 24px 24px; background: radial-gradient(ellipse at 50% 30%, #f4f6e9, #d4dfbf); }
+.landing[data-design="grove"] .lp-configurator-controls { background: transparent; border: 0; }
+.landing[data-design="grove"] .lp-choice span { background: #f1f3e8; }
+.landing[data-design="grove"] .lp-choice input:checked + span { background: #193f33; color: #f1f3e8; }
+.landing[data-design="grove"] .v2-gift { background: #d2df95; }
+.landing[data-design="grove"] .v2-gift img { border-radius: 160px 160px 16px 16px; }
+
+/* 03 · SIGNAL — cobalt hero, broad sans serif and precise graphic blocks. */
+.landing[data-design="signal"] {
+  --color-paper: #f2f5ff; --color-well: #e3e9fc; --color-field: #e0f16c;
+  --color-ink: #152650; --color-muted: #4b5977; --color-rule: #bac6e5;
+  --color-accent: #214de5; --color-accent-hover: #1639bc; --color-focus: #214de5;
+  --radius-control: 4px; --font-display: "Verso Modern", "Verso Georgian", sans-serif;
+  --text-section: clamp(32px, 3.2vw, 46px);
+}
+.landing[data-design="signal"] h1, .landing[data-design="signal"] h2, .landing[data-design="signal"] h3 { font-weight: 700; letter-spacing: -.04em; }
+.landing[data-design="signal"] .lp-logo svg { display: none; }
+.landing[data-design="signal"] .lp-logotype { font-family: var(--font-display); font-weight: 700; font-size: 38px; letter-spacing: -2.5px; }
+.landing[data-design="signal"] .lp-header { height: 88px; border: 0; }
+.landing[data-design="signal"] .lp-hero { background: #214de5; color: #f6f8ff; --color-muted: #e4ebff; --color-focus: #e0f16c; --color-accent: #e0f16c; --color-accent-ink: #14234a; --color-accent-hover: #d0e157; --color-rule: #708af0; }
+.landing[data-design="signal"] .v2-hero-layout { gap: 64px; min-height: 760px; padding-block: 64px; }
+.landing[data-design="signal"] .lp-hero h1 { font-size: clamp(44px, 4.4vw, 64px); line-height: 1.1; max-width: 620px; }
+.landing[data-design="signal"] .v2-head-line { display: inline; }
+.landing[data-design="signal"] .lp-hero-art { background: #dce6ff; border: 2px solid #13264c; box-shadow: 12px 12px 0 #e0f16c; height: 560px; }
+.landing[data-design="signal"] .lp-hero-art::before { display: none; }
+.landing[data-design="signal"] .v2-cover-sample { top: 5%; right: 10%; width: 39%; transform: rotateZ(6deg); }
+.landing[data-design="signal"] .v2-open-sample { width: 90%; left: 5%; top: 17%; transform: rotateZ(-5deg); }
+.landing[data-design="signal"] .lp-preview-caption { color: #152650; padding: 16px 20px; }
+.landing[data-design="signal"] .lp-preview-controls button { border-color: #7887ac; }
+.landing[data-design="signal"] .v2-occasions { border: 0; }
+.landing[data-design="signal"] .v2-occasion-photo { border-radius: 0; border: 2px solid #152650; }
+.landing[data-design="signal"] .lp-occasion h3 { font-size: 27px; }
+.landing[data-design="signal"] .v2-how { background: #e0f16c; }
+.landing[data-design="signal"] .lp-step-list li { border-top: 2px solid #152650; }
+.landing[data-design="signal"] .lp-step-list li::before { font-family: var(--font-display); font-weight: 700; font-size: 48px; }
+.landing[data-design="signal"] .lp-step-list h3 { font-size: 26px; }
+.landing[data-design="signal"] .v2-studio-proof img { border-radius: 0; border: 2px solid #152650; }
+.landing[data-design="signal"] .lp-configurator-controls { background: #fff; border: 2px solid #152650; }
+.landing[data-design="signal"] .lp-book-viewer { background: #dde6fb; border: 2px solid #152650; }
+.landing[data-design="signal"] .lp-price output { font-family: var(--font-display); font-weight: 700; font-size: 58px; }
+.landing[data-design="signal"] .v2-gift { background: #214de5; color: #f6f8ff; --color-muted: #e4ebff; --color-focus: #e0f16c; --color-accent: #e0f16c; --color-accent-ink: #14234a; --color-accent-hover: #d0e157; }
+.landing[data-design="signal"] .v2-gift img { border-radius: 0; }
+
+/* 04 · NOIR — a dark, quiet bookshop with warm metallic details. */
+.landing[data-design="noir"] {
+  --color-paper: #191b1c; --color-well: #252829; --color-field: #222526;
+  --color-ink: #eee9dc; --color-muted: #bdbdb5; --color-rule: #50514c;
+  --color-accent: #cbb995; --color-accent-ink: #202222; --color-accent-hover: #dfcda8; --color-focus: #e2cfa3;
+  --font-display: "Verso Contrast", "Verso Serif Georgian", serif;
+  --radius-control: 2px; --text-section: clamp(34px, 3.2vw, 48px);
+}
+.landing[data-design="noir"] .lp-header { height: 100px; border-color: #454940; }
+.landing[data-design="noir"] .lp-logo svg { color: #cbb995; width: 18px; }
+.landing[data-design="noir"] .lp-logotype { font-family: var(--font-display); font-size: 39px; letter-spacing: -2px; }
+.landing[data-design="noir"] .lp-nav-cta { background: transparent; color: #eee9dc !important; border: 1px solid #cbb995; }
+.landing[data-design="noir"] .v2-hero-layout { min-height: 760px; gap: 64px; padding-block: 64px 80px; }
+.landing[data-design="noir"] .lp-hero h1 { font-size: clamp(42px, 4.1vw, 60px); line-height: 1.2; letter-spacing: -.035em; }
+.landing[data-design="noir"] .v2-head-line { display: inline; }
+.landing[data-design="noir"] .lp-hero-art::before { inset: 0 0 12%; border-radius: 0; background: radial-gradient(ellipse, #49463c, #191b1c 70%); }
+.landing[data-design="noir"] .v2-cover-sample { top: 2%; right: 8%; width: 44%; transform: rotateZ(4deg); }
+.landing[data-design="noir"] .v2-open-sample { width: 92%; left: 3%; top: 19%; transform: rotateZ(-4deg); }
+.landing[data-design="noir"] .v2-occasions { border-color: #454940; }
+.landing[data-design="noir"] .v2-occasion-photo { border-radius: 0; }
+.landing[data-design="noir"] .lp-occasion h3 { font-size: 25px; }
+.landing[data-design="noir"] .v2-how { background: #222526; }
+.landing[data-design="noir"] .lp-step-list li::before { font-size: 38px; color: #cbb995; }
+.landing[data-design="noir"] .lp-step-list h3 { font-size: 24px; }
+.landing[data-design="noir"] .v2-studio-proof { max-width: 960px; border: 1px solid #50514c; padding: 20px; }
+.landing[data-design="noir"] .v2-studio-proof img { border-radius: 0; }
+.landing[data-design="noir"] .lp-configurator-controls { border: 1px solid #50514c; background: #222526; }
+.landing[data-design="noir"] .lp-book-viewer { border: 1px solid #50514c; background: radial-gradient(ellipse at 50% 30%, #454540, #242728); }
+.landing[data-design="noir"] .lp-choice input:checked + span { background: #cbb995; color: #202222; border-color: #cbb995; }
+.landing[data-design="noir"] .v2-gift { background: #222526; border-block: 1px solid #454940; }
+.landing[data-design="noir"] .v2-gift img { border-radius: 0; }
+.landing[data-design="noir"] .lp-footer { padding-top: 64px; }
+
+/* 05 · BLOOM — lavender and coral, generous rounded panels and a friendly sans. */
+.landing[data-design="bloom"] {
+  --color-paper: #ede4f6; --color-well: #f8f0f0; --color-field: #e1d3f0;
+  --color-ink: #4a285b; --color-muted: #6f5978; --color-rule: #cdbad7;
+  --color-accent: #8d3151; --color-accent-hover: #70223e; --color-focus: #8d3151;
+  --font-display: "Verso Modern", "Verso Georgian", sans-serif;
+  --radius-control: 24px; --text-section: clamp(32px, 3.2vw, 46px);
+}
+.landing[data-design="bloom"] h1, .landing[data-design="bloom"] h2, .landing[data-design="bloom"] h3 { font-weight: 700; letter-spacing: -.045em; line-height: 1.15; }
+.landing[data-design="bloom"] .lp-header { width: calc(100% - var(--gutter) * 2); max-width: 1232px; margin-top: 20px; padding-inline: 24px; border: 0; height: 76px; border-radius: 50px; background: #faf5fb; }
+.landing[data-design="bloom"] .lp-logotype { font-family: var(--font-display); font-weight: 700; font-size: 36px; letter-spacing: -2px; }
+.landing[data-design="bloom"] .lp-logo svg { color: #df775e; }
+.landing[data-design="bloom"] .v2-hero-layout { grid-template-columns: 1.05fr 1fr; min-height: 740px; padding-block: 72px 80px; gap: 64px; }
+.landing[data-design="bloom"] .lp-hero-copy { order: 2; }
+.landing[data-design="bloom"] .lp-hero h1 { font-size: clamp(40px, 4.1vw, 60px); max-width: 600px; }
+.landing[data-design="bloom"] .v2-head-line { display: inline; }
+.landing[data-design="bloom"] .lp-hero-art { order: 1; background: #f6cdc0; border-radius: 40px; height: 560px; box-shadow: 0 14px 0 #d8c6e9; }
+.landing[data-design="bloom"] .lp-hero-art::before { display: none; }
+.landing[data-design="bloom"] .v2-cover-sample { width: 40%; top: 5%; right: 9%; transform: rotateZ(9deg); }
+.landing[data-design="bloom"] .v2-open-sample { width: 90%; left: 5%; top: 17%; transform: rotateZ(-6deg); }
+.landing[data-design="bloom"] .lp-preview-caption { padding: 16px 20px; }
+.landing[data-design="bloom"] .lp-cta { border-radius: 30px; }
+.landing[data-design="bloom"] .v2-occasions { border: 0; }
+.landing[data-design="bloom"] .lp-occasion { padding: 16px 16px 24px; border-radius: 28px; background: #faf5fb; }
+.landing[data-design="bloom"] .v2-occasion-photo { border-radius: 18px; }
+.landing[data-design="bloom"] .lp-occasion h3 { font-size: 25px; padding-inline: 8px; }
+.landing[data-design="bloom"] .lp-occasion > p { padding-inline: 8px; }
+.landing[data-design="bloom"] .v2-how { background: #e0d2ee; }
+.landing[data-design="bloom"] .lp-step-list li { padding: 28px; border: 0; border-radius: 26px; background: #f9f2fb; }
+.landing[data-design="bloom"] .lp-step-list li:nth-child(2) { background: #f8d9ce; }
+.landing[data-design="bloom"] .lp-step-list li:nth-child(3) { background: #e9efc7; }
+.landing[data-design="bloom"] .lp-step-list li::before { font: 700 32px/1 var(--font-display); }
+.landing[data-design="bloom"] .lp-step-list h3 { font-size: 24px; }
+.landing[data-design="bloom"] .v2-studio-proof img { border-radius: 20px; }
+.landing[data-design="bloom"] .lp-book-viewer { background: #f6cdc0; border: 0; border-radius: 32px; }
+.landing[data-design="bloom"] .lp-configurator-controls { background: #faf5fb; border: 0; border-radius: 32px; }
+.landing[data-design="bloom"] .v2-gift { background: #f6cdc0; }
+.landing[data-design="bloom"] .v2-gift img { border-radius: 32px; }
+
+/* Georgian uses the same compositions, with a calmer display scale. */
+.landing[data-design="grove"][data-language="ka"] h1 { font-size: clamp(36px, 3.7vw, 52px); }
+.landing[data-design="folio"][data-language="ka"] h1 { font-size: clamp(36px, 4.3vw, 58px); }
+.landing[data-design="signal"][data-language="ka"] h1,
+.landing[data-design="bloom"][data-language="ka"] h1 { font-size: clamp(34px, 3.3vw, 46px); }
+.landing[data-design="noir"][data-language="ka"] h1 { font-size: clamp(34px, 3.4vw, 46px); }
+.landing[data-design]:where(:not([data-design="classic"]))[data-language="ka"] .lp-logotype { font-size: 36px; }
+
+@media (min-width: 741px) and (max-width: 1100px) {
+  .landing[data-design]:where(:not([data-design="classic"])) .v2-hero-layout { gap: 32px; }
+  .landing[data-design]:where(:not([data-design="classic"])) .lp-hero h1 { font-size: 46px; }
+  .landing[data-design="signal"] .lp-hero h1, .landing[data-design="bloom"] .lp-hero h1 { font-size: 39px; }
+  .landing[data-design]:where(:not([data-design="classic"]))[data-language="ka"] .lp-hero h1 { font-size: 34px; }
+  .landing[data-design="folio"] .lp-hero h1 { font-size: 62px; }
+  .landing[data-design="folio"][data-language="ka"] .lp-hero h1 { font-size: 46px; }
+  .landing[data-design="bloom"] .lp-header nav { display: none; }
+  .landing[data-design="grove"] .lp-step-list li, .landing[data-design="bloom"] .lp-step-list li { padding: 20px; }
+}
+@media (max-width: 740px) {
+  .landing[data-design]:where(:not([data-design="classic"])) .lp-header { height: 80px; }
+  .landing[data-design]:where(:not([data-design="classic"])) .v2-hero-layout { grid-template-columns: minmax(0, 1fr); min-height: 0; padding-block: 40px 48px; gap: 32px; }
+  .landing[data-design]:where(:not([data-design="classic"])) .lp-hero-copy { order: 0; }
+  .landing[data-design]:where(:not([data-design="classic"])) .lp-hero-art { order: 1; width: min(100%, 480px); height: auto; aspect-ratio: 1 / 1.1; margin-inline: auto; }
+  .landing[data-design]:where(:not([data-design="classic"])) .lp-hero h1 { font-size: clamp(37px, 9.5vw, 54px); }
+  .landing[data-design="signal"] .lp-hero h1, .landing[data-design="bloom"] .lp-hero h1 { font-size: clamp(32px, 8.5vw, 46px); }
+  .landing[data-design="noir"] .lp-hero h1 { font-size: clamp(34px, 8.5vw, 46px); }
+  .landing[data-design]:where(:not([data-design="classic"]))[data-language="ka"] .lp-hero h1 { font-size: clamp(29px, 7.6vw, 38px); }
+  .landing[data-design]:where(:not([data-design="classic"]))[data-language="ka"] h2 { font-size: 30px; }
+  .landing[data-design]:where(:not([data-design="classic"]))[data-language="ka"] h3 { font-size: 22px; }
+  .landing[data-design="folio"] .lp-header { height: 88px; }
+  .landing[data-design="folio"] .lp-hero-copy { text-align: left; }
+  .landing[data-design="folio"] .v2-hero-actions { justify-content: flex-start; }
+  .landing[data-design="folio"] .v2-cover-sample { width: 34%; }
+  .landing[data-design="folio"] .v2-open-sample { width: 94%; left: 0; top: 21%; }
+  .landing[data-design="folio"] .lp-hero-art::before { inset: 0 0 12%; }
+  .landing[data-design="folio"] .v2-gift-layout { gap: 32px; }
+  .landing[data-design="grove"] .v2-occasion-photo { aspect-ratio: 4 / 3; border-radius: 120px 120px 12px 12px; }
+  .landing[data-design="grove"] .lp-step-list li, .landing[data-design="bloom"] .lp-step-list li { padding: 24px; }
+  .landing[data-design="grove"] .lp-step-list li::before, .landing[data-design="bloom"] .lp-step-list li::before { position: static; margin-bottom: 16px; }
+  .landing[data-design="grove"] .lp-book-viewer { border-radius: 100px 100px 24px 24px; }
+  .landing[data-design="signal"] .lp-hero-art { width: calc(100% - 10px); margin-inline: 0 !important; box-shadow: 8px 8px 0 #e0f16c; }
+  .landing[data-design="signal"] .lp-preview-caption, .landing[data-design="bloom"] .lp-preview-caption { padding: 12px; font-size: 12px; }
+  .landing[data-design="noir"] .v2-studio-proof { padding: 10px; }
+  .landing[data-design="bloom"] .lp-header { width: calc(100% - 32px); padding-inline: 16px; margin-top: 12px; height: 72px; }
+  .landing[data-design="bloom"] .lp-logotype { font-size: 31px; }
+  .landing[data-design="bloom"] .lp-logo svg { width: 20px; }
+  .landing[data-design="bloom"] .lp-hero-art { border-radius: 28px; }
+  .landing[data-design]:where(:not([data-design="classic"])) .lp-configurator-controls { padding: 24px 20px; }
+  .landing[data-design="folio"] .lp-configurator-controls { padding-inline: 0; }
+}

@@ -171,8 +171,8 @@ export function AuthDialog({
           className="secondary full-width"
           onClick={() =>
             download(
-              `Matiane\n${email}\n${recovery}\n`,
-              "Matiane-recovery.txt",
+              `verso\n${email}\n${recovery}\n`,
+              "verso-recovery.txt",
               "text/plain",
             )
           }
