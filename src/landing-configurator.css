@@ -44,18 +44,19 @@
 }
 .lp-book-scene {
   height: 520px;
-  background: var(--catalog-color-paper-2);
+  background: radial-gradient(ellipse at 45% 35%, #faf7ee, var(--catalog-color-paper-2) 75%);
   display: grid;
   place-items: center;
   perspective: 1400px;
   overflow: clip;
 }
+/* All faces share the same depth, so the page count changes a solid volume. */
 .lp-book-object {
   width: 300px;
   aspect-ratio: 195/245;
   position: relative;
   transform-style: preserve-3d;
-  transform: rotateX(7deg) rotateY(-28deg) rotateZ(1deg);
+  transform: rotateX(16deg) rotateY(-32deg) rotateZ(-5deg);
   margin-left: 20px;
 }
 .lp-book-back,
@@ -63,38 +64,63 @@
   position: absolute;
   inset: 0;
   background: var(--catalog-color-book-board);
-  border-radius: 1px;
+  border-radius: 0;
   transform-style: preserve-3d;
 }
 .lp-book-back {
-  box-shadow: 14px 20px 28px var(--catalog-color-book-shadow);
+  box-shadow: 20px 30px 38px var(--catalog-color-book-shadow);
 }
 .lp-book-front {
   transform: translateZ(var(--book-depth));
-  padding: var(--cover-board);
   transition: transform var(--catalog-duration);
 }
 .lp-book-front img {
   height: 100%;
   width: 100%;
   object-fit: cover;
-  border-radius: inherit;
+  border-radius: 0;
+}
+.lp-book-front::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgb(0 0 0 / .16), transparent 2%, rgb(255 255 255 / .18) 3%, transparent 5%, rgb(0 0 0 / .12) 6%, transparent 9%, transparent 95%, rgb(255 255 255 / .16));
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / .1);
 }
 .lp-book-leaves {
   position: absolute;
-  left: 100%;
-  top: 1%;
-  width: var(--book-depth);
-  height: 98%;
+  left: calc(100% - var(--page-inset));
+  top: var(--page-inset);
+  width: calc(var(--book-depth) - var(--cover-board) * 2);
+  height: calc(100% - var(--page-inset) * 2);
   transform-origin: left center;
-  transform: rotateY(-90deg);
-  background: repeating-linear-gradient(
-    90deg,
-    var(--catalog-color-book-page) 0px,
-    var(--catalog-color-book-page) 2px,
-    var(--catalog-color-book-edge) 2px,
-    var(--catalog-color-book-edge) 3px
-  );
+  transform: translateZ(var(--cover-board)) rotateY(-90deg);
+  background: repeating-linear-gradient(90deg, #f8f4e9 0px, #f8f4e9 1px, #d9d3c3 1px, #e9e3d5 2px);
+  box-shadow: inset 0 5px 8px rgb(49 38 23 / .14);
+}
+.lp-book-top,
+.lp-book-bottom {
+  position: absolute;
+  left: var(--page-inset);
+  width: calc(100% - var(--page-inset) * 2);
+  height: calc(var(--book-depth) - var(--cover-board) * 2);
+  transform-origin: center top;
+  transform: translateZ(var(--cover-board)) rotateX(90deg);
+  background: repeating-linear-gradient(0deg, #f8f4e9 0px, #f8f4e9 1px, #d9d3c3 1px, #e9e3d5 2px);
+}
+.lp-book-top { top: var(--page-inset); }
+.lp-book-bottom { top: calc(100% - var(--page-inset)); }
+.lp-book-front::before,
+.lp-book-back::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 100%;
+  width: 100%;
+  height: var(--cover-board);
+  transform-origin: center top;
+  transform: rotateX(-90deg);
+  background: #4b5544;
 }
 .lp-book-spine {
   position: absolute;
@@ -104,14 +130,10 @@
   height: 100%;
   transform-origin: left center;
   transform: rotateY(-90deg);
-  background: var(--catalog-color-book-board);
+  background: linear-gradient(90deg, #243b2c, #4a6048 45%, #304b3c);
 }
-.lp-book-model[data-cover="soft"] .lp-book-front {
-  border-radius: 1px 12px 9px 1px;
-  transform: translateZ(var(--book-depth)) rotateY(-3deg);
-}
-.lp-book-model[data-cover="soft"] .lp-book-back {
-  border-radius: 1px 7px 7px 1px;
+.lp-book-model[data-cover="soft"] .lp-book-front::after {
+  background: linear-gradient(90deg, rgb(0 0 0 / .12), transparent 5%, transparent 97%, rgb(255 255 255 / .12));
 }
 .lp-book-model figcaption {
   display: flex;
@@ -351,9 +373,7 @@
   }
   .lp-book-model {
     width: 100%;
-    position: sticky;
-    top: 0;
-    z-index: 3;
+    position: relative;
     background: var(--catalog-color-paper);
     padding-top: 8px;
     padding-bottom: 12px;

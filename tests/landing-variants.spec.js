@@ -8,6 +8,8 @@ for (const path of ["/", "/landing-v2"]) {
   }, info) => {
     test.setTimeout(60000);
     const errors = [];
+    await page.goto(`${path}?lang=ru`);
+    await expect(page.locator("html")).toHaveAttribute("data-landing-version", "v2");
     page.on("pageerror", (error) => errors.push(error.message));
     for (const [language, headline] of [
       ["ka", "გადაიტანეთ მოგონებები ტელეფონის გალერეიდან წიგნში"],

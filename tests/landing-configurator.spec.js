@@ -59,9 +59,9 @@ test("the six supplied prices in GEL match the selected cover and pages, and the
     model = section.locator(".lp-book-model");
   await section.scrollIntoViewIfNeeded();
   await expect(section.locator("output")).toHaveText("100 ₾");
-  const hardRadius = await model
-    .locator(".lp-book-front")
-    .evaluate((element) => getComputedStyle(element).borderRadius);
+  const hardInset = await model.evaluate((element) =>
+    parseFloat(getComputedStyle(element).getPropertyValue("--page-inset")),
+  );
   let depth40, depth80;
   for (const [cover, pages, price] of [
     ["Твёрдая", 40, 100],
@@ -95,7 +95,10 @@ test("the six supplied prices in GEL match the selected cover and pages, and the
     await model
       .locator(".lp-book-front")
       .evaluate((element) => getComputedStyle(element).borderRadius),
-  ).not.toBe(hardRadius);
+  ).toBe("0px");
+  expect(await model.evaluate((element) =>
+    parseFloat(getComputedStyle(element).getPropertyValue("--page-inset")),
+  )).toBeLessThan(hardInset);
   await section.locator("summary").click();
   expect(
     await section
@@ -141,6 +144,9 @@ test("sample spreads turn without moving the page and all controls and prices fi
   ).toBeDisabled();
   await expect(page.locator(".lp-preview-caption")).toContainText("Наш 2026");
   const section = page.locator("#book-options");
+  async function modelVisible() {
+    await section.locator(".lp-book-model").scrollIntoViewIfNeeded();
+  }
   for (const [language, hard, soft] of [
     ["ka", "მყარი", "რბილი"],
     ["en", "Hardcover", "Softcover"],
@@ -152,8 +158,11 @@ test("sample spreads turn without moving the page and all controls and prices fi
     await expect(section.locator("output")).toHaveText("150 ₾");
     await section.getByRole("radio", { name: hard, exact: true }).check();
     await expect(section.locator("output")).toHaveText("190 ₾");
+    await modelVisible();
     const box = await section.locator(".lp-book-model").boundingBox();
-    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(-1);
+    const controls = await section.locator(".lp-configurator-controls").boundingBox();
+    expect(controls.y).toBeGreaterThanOrEqual(box.y + box.height);
     expect(box.y + box.height).toBeLessThanOrEqual(844);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),

@@ -14,7 +14,7 @@ const landingVersion = /^\/landing-archive(?:\/|$)/.test(location.pathname)
   ? "archive"
   : /^\/landing-v2(?:\/|$)/.test(location.pathname)
     ? "v2"
-    : "classic";
+    : "v2";
 if (!studio) document.documentElement.dataset.landingVersion = landingVersion;
 // Separate loader callbacks are essential: Vite 6 attaches the wrong CSS
 // dependency list to a conditional import inside a single lazy callback.

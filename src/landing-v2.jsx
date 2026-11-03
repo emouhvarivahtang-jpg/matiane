@@ -113,7 +113,7 @@ export default function LandingV2() {
         {t.skip}
       </a>
       <header className="lp-header lp-container">
-        <a className="lp-logo" href="/landing-v2" aria-label="Matiane">
+        <a className="lp-logo" href={`/?lang=${language}`} aria-label="Matiane">
           {logo}
         </a>
         <nav aria-label={t.navigation}>
@@ -311,7 +311,7 @@ export default function LandingV2() {
       <footer className="lp-footer lp-container">
         <div className="v2-footer-main">
           <div>
-            <a className="lp-logo" href="/landing-v2" aria-label="Matiane">
+            <a className="lp-logo" href={`/?lang=${language}`} aria-label="Matiane">
               {logo}
             </a>
             <p>{t.footer}</p>

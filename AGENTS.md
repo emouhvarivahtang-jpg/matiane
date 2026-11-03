@@ -31,8 +31,8 @@ editorial direction. Keep the palette, but use clear classical hierarchy, aligne
 sections and a visible photo book and action. The exact Russian proposition is
 “Перенесите воспоминания из ленты телефона в книгу”, translated into KA and EN.
 
-- `/`: original warm design restored, with approved content changes.
-- `/landing-v2`: new classical landing for comparison.
+- `/`: classical landing v2, promoted to the main site by user request.
+- `/landing-v2`: retained alias of the main classical landing.
 - `/landing-archive`: frozen photo-journal version from `2d2097f`, including its
   own JSX, CSS, copy and catalog. Do not silently redesign the archive.
 

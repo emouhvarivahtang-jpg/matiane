@@ -718,3 +718,82 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Storefront finish: clear product stage and consistent control surfaces. */
+.lp-header {
+  border-bottom: 1px solid var(--color-rule);
+}
+.lp-header select {
+  border-color: var(--color-rule);
+  background: var(--color-paper);
+}
+.lp-hero-art {
+  perspective: 1400px;
+  isolation: isolate;
+}
+.lp-hero-art::before {
+  content: "";
+  position: absolute;
+  inset: 3% -3% 12%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, var(--color-well), transparent 70%);
+}
+.v2-cover-sample {
+  transform: rotateY(-20deg) rotateZ(8deg);
+  transform-style: preserve-3d;
+  box-shadow: 2px 2px 0 #eee8d9, 5px 5px 0 #c4bfaf, 8px 8px 0 #eee8d9, 10px 10px 0 #304b3c, 18px 24px 28px var(--color-book-shadow);
+}
+.v2-cover-sample::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgb(0 0 0 / .15), transparent 4%, rgb(255 255 255 / .18) 5%, transparent 8%);
+}
+.v2-open-sample {
+  transform: rotateX(12deg) rotateZ(-5deg);
+  box-shadow: 0 2px 0 #f7f2e5, 0 4px 0 #c4bfaf, 0 6px 0 #f7f2e5, 0 8px 0 #304b3c, 4px 24px 32px var(--color-book-shadow);
+}
+.v2-open-sample::after {
+  left: 47%;
+  width: 6%;
+  background: linear-gradient(90deg, transparent, rgb(50 42 25 / .15) 45%, rgb(255 255 255 / .12) 55%, transparent);
+}
+.v2-occasions {
+  border-top: 1px solid var(--color-rule);
+}
+.landing-v2 .lp-configurator-controls {
+  background: #f2eee4;
+  padding: 28px;
+  border: 1px solid #dedecf;
+  border-radius: 12px;
+}
+.landing-v2 .lp-choice span {
+  white-space: normal;
+  text-align: center;
+}
+.landing-v2 .lp-book-scene {
+  border: 1px solid #e4dece;
+}
+@media (min-width: 741px) and (max-width: 1000px) {
+  .landing-v2 .lp-book-model { grid-column: 1/7; }
+  .landing-v2 .lp-configurator-controls { grid-column: 7/-1; padding: 20px; }
+  .landing-v2 .lp-book-object { width: 220px; }
+}
+@media (max-width: 740px) {
+  .lp-header { gap: 12px; }
+  .lp-header-actions { gap: 12px; }
+  .lp-login { min-height: 44px; display: inline-flex; align-items: center; }
+  .v2-hero-actions .lp-cta { width: 100%; }
+  .v2-hero-layout { gap: 28px; }
+  .lp-hero-art { aspect-ratio: 1/1.08; }
+  .landing-v2 .lp-configurator-controls { padding: 24px 20px; }
+  .landing-v2 .lp-book-scene { height: 300px; }
+  .landing-v2 .lp-book-model { padding: 0; }
+  .landing-v2 .lp-configurator { gap: 28px; }
+  .lp-price-matrix summary { min-height: 44px; }
+}
+@media (max-width: 360px) {
+  :root { --gutter: 18px; }
+  .lp-header-actions { gap: 8px; font-size: 13px; }
+}

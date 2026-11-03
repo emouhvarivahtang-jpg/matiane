@@ -36,12 +36,15 @@ export function BookConfigurator({
         style={{
           "--book-depth": `${depth}px`,
           "--cover-board": cover === "hard" ? "4px" : "1px",
+          "--page-inset": cover === "hard" ? "9px" : "1px",
         }}
       >
         <div className="lp-book-scene" aria-hidden="true">
           <div className="lp-book-object">
             <div className="lp-book-back" />
             <div className="lp-book-leaves" />
+            <div className="lp-book-top" />
+            <div className="lp-book-bottom" />
             <div className="lp-book-front">
               <img
                 src={`/landing/${samplePrefix}-cover-${language}.webp`}
