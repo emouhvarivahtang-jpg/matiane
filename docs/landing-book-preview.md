@@ -1,40 +1,39 @@
-# Landing book preview
+# Landing book product card
 
-The configurator uses six Blender meshes: hard and soft bindings, each with
-40, 60 or 80 pages. `tools/build-landing-models.py` constructs cover boards,
-a continuous spine and a layered paper block. Hardcover boards project beyond
-the paper; soft covers have square corners and a gently curved fore edge.
-Dimensions are schematic comparisons, not production measurements. Paired sheets
-share a visible layer to prevent subpixel moiré on small displays.
+The configurator shows fixed, almost frontal renders of the six Blender bindings:
+hard and soft covers with 40, 60 or 80 pages. The complete cover faces the viewer;
+a small angle reveals the cover overhang and page block. Soft covers keep square
+corners and a gentle fore-edge curve. Dimensions are schematic comparisons, not
+manufacturing measurements.
 
-Run Blender 4.3+ from the repository root:
+The customer-facing card uses native WebP images. There is no WebGL viewer,
+drag gesture, rotation button, view toggle or input capture. Desktop hover adds
+a small 4.5% zoom; coarse pointers and reduced-motion preferences keep it still.
+The selected price is displayed directly; there is no separate all-prices table.
+
+`tools/build-landing-models.py` is the Blender 4.3+ geometry source. Paired sheets
+share a visible layer to prevent subpixel moiré. Regenerate the GLBs with:
 
 ```sh
-blender -b -t 4 -P tools/build-landing-models.py
-node tools/encode-landing-posters.mjs
+blender -b -t 4 -P tools/build-landing-models.py -- --models-only
 ```
 
-GLBs and 18 localized WebP posters are checked into `public/landing/models/`.
-Blender and source PNGs are not needed for production builds. Intermediate PNGs
-and the editable Blender scene go into `work/book-3d/`. Existing PNGs are reused;
-remove the particular generated PNGs before deliberately re-rendering a changed
-model. `--models-only` exports meshes without rendering; `--preview` renders the
-Russian 80-page hardcover only. The existing cover artwork supplies all three
-languages and is not embedded in the GLBs.
+To regenerate the current product images, start `npm run dev`, then run:
 
-`landing-book-preview.jsx` loads `landing-book-scene.js` near the viewport.
-Three.js and the models are separate lazy chunks and never enter the studio.
-Only the selected model is requested. The scene renders on demand, caps device
-pixel ratio and releases its resources on unmount. Dragging rotates the book;
-the cover/side presets and rotation buttons also work from a keyboard. Touch
-uses `pan-y` to retain ordinary vertical page scrolling. Reduced motion skips
-the settling animation.
+```sh
+node tools/render-landing-cards.mjs
+```
 
-A localized render remains available during loading, on initialization failure
-or WebGL context loss. It still follows the selected binding, page count and
-language. Prices and registration links remain ordinary React controls.
+This offline tool uses the Blender GLBs, the existing KA/EN/RU cover textures and
+`tools/landing-card-renderer.js` for the fixed camera and lighting. It renders
+at 1400px and saves 1000px WebPs under `public/landing/models/card-*.webp`.
+`--preview` writes only the Russian 80-page hardcover into `work/book-card/`.
+Three.js is a development dependency and is not loaded by the site.
 
-`tests/landing-book.spec.js` checks lazy loading, model and language changes,
-rotation, a narrow viewport, and the fallback. The normal production suite also
-checks prices and studio style/viewport isolation. Repeat the required isolation
-and viewport tests on the live HTTPS origin after publication.
+Legacy GLBs and older fallback images are retained for previously loaded site
+versions. The current card only requests the selected `card-*.webp` image.
+
+`tests/landing-book.spec.js` covers variant/language switching, absence of viewer
+controls, hover, reduced motion and normal page scrolling. The production suite
+also checks all six supplied prices and the isolated studio layout. Repeat the
+required isolation and viewport tests on the live HTTPS origin after publication.

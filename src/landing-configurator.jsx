@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { catalogText, landingText } from "./landing-text";
-import { BOOK_PRICES, BOOK_PAGE_OPTIONS, bookPrice } from "./landing-catalog";
+import { BOOK_PAGE_OPTIONS, bookPrice } from "./landing-catalog";
 import "./landing-configurator.css";
 import { BookPreview } from "./landing-book-preview";
 
@@ -14,7 +14,6 @@ export function BookConfigurator({
   const c = catalogText[language],
     t = landingText[language];
   const price = bookPrice(cover, pages);
-  const priceLabel = (value) => `${value} ₾`;
   const selection = `${c[cover]}, ${pages} ${c.pageUnit}`;
   return (
     <section
@@ -82,31 +81,6 @@ export function BookConfigurator({
         <a className="lp-cta" href={register}>
           {actionLabel || t.create}
         </a>
-        <details className="lp-price-matrix">
-          <summary>
-            {c.allPrices}
-            <span aria-hidden="true">+</span>
-          </summary>
-          <table>
-            <caption className="lp-sr-only">{c.allPrices}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{c.pageColumn}</th>
-                <th scope="col">{c.soft}</th>
-                <th scope="col">{c.hard}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {BOOK_PAGE_OPTIONS.map((count) => (
-                <tr key={count}>
-                  <th scope="row">{count}</th>
-                  <td>{priceLabel(BOOK_PRICES.soft[count])}</td>
-                  <td>{priceLabel(BOOK_PRICES.hard[count])}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </details>
       </div>
     </section>
   );

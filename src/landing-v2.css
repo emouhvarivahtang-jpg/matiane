@@ -787,7 +787,6 @@ body {
   .landing-v2 .lp-book-scene { height: 320px; }
   .landing-v2 .lp-book-model { padding: 0; }
   .landing-v2 .lp-configurator { gap: 28px; }
-  .lp-price-matrix summary { min-height: 44px; }
 }
 @media (max-width: 360px) {
   :root { --gutter: 18px; }

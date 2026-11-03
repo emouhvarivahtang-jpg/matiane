@@ -53,3 +53,6 @@ The WhatsApp order handoff belongs in the studio, as separate product work;
 the landing's main actions still lead to studio registration. The user expressly
 requested a material/thickness model in the book configurator; this is a
 functional exception to avoiding decorative CSS book mockups elsewhere.
+The configurator is a product card: show the whole cover in a fixed, nearly
+frontal view. No rotation/drag controls or separate all-prices disclosure;
+only a restrained desktop hover zoom. The selected price stays visible.

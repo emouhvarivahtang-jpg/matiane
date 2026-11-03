@@ -78,21 +78,10 @@ test("the six supplied prices in GEL match the selected cover and pages, and the
     );
     await expect(model).toHaveAttribute("data-pages", String(pages));
     await expect(model.locator(".lp-book-poster")).toHaveAttribute(
-      "src", `/landing/models/${cover === "Твёрдая" ? "hard" : "soft"}-${pages}-ru.webp`,
+      "src", `/landing/models/card-${cover === "Твёрдая" ? "hard" : "soft"}-${pages}-ru.webp`,
     );
   }
-  await section.locator("summary").click();
-  expect(
-    await section
-      .locator("tbody tr")
-      .evaluateAll((rows) =>
-        rows.map((row) => [...row.cells].map((cell) => cell.textContent)),
-      ),
-  ).toEqual([
-    ["40", "80 ₾", "100 ₾"],
-    ["60", "110 ₾", "140 ₾"],
-    ["80", "150 ₾", "190 ₾"],
-  ]);
+  await expect(section.locator("details, summary, table")).toHaveCount(0);
   expect(apiRequests).toEqual([]);
   await expect(section.locator(".lp-cta")).toHaveAttribute(
     "href",

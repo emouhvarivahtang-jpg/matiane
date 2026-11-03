@@ -54,66 +54,22 @@
   height: 490px;
   overflow: hidden;
 }
-.lp-book-canvas,
-.lp-book-poster {
+.lp-book-scene .lp-book-poster {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  transform: scale(1);
+  transition: transform 320ms cubic-bezier(.2, .65, .3, 1);
 }
-.lp-book-scene .lp-book-poster { height: 100%; object-fit: contain; }
-.lp-book-canvas { opacity: 0; transition: opacity 240ms; }
-.lp-book-canvas canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
-.lp-book-canvas canvas.is-dragging { cursor: grabbing; }
-.lp-book-viewer[data-renderer="ready"] .lp-book-canvas { opacity: 1; }
-.lp-book-viewer[data-renderer="ready"] .lp-book-poster { visibility: hidden; }
-.lp-book-view-toggle {
-  position: absolute;
-  z-index: 1;
-  top: 18px;
-  left: 18px;
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid #d9d4c8;
-  border-radius: 24px;
-  background: #faf8f2ed;
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .lp-book-viewer:hover .lp-book-poster {
+    transform: translateY(-3px) scale(1.045);
+  }
 }
-.lp-book-view-toggle button {
-  border: 0;
-  border-radius: 22px;
-  background: transparent;
-  padding: 8px 16px;
-  min-height: 40px;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-.lp-book-view-toggle button[aria-pressed="true"] { background: var(--catalog-color-ink); color: var(--catalog-color-paper); }
-.lp-book-turn-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 56px;
-  padding: 4px 20px 12px;
-  color: var(--catalog-color-muted);
-  font-size: 13px;
-}
-/* Reserve the toolbar space before WebGL finishes, including the fallback. */
-.lp-book-viewer:not([data-renderer="ready"]) { padding-bottom: 60px; }
-.lp-book-turn-controls > div { display: flex; gap: 8px; }
-.lp-book-turn-controls button {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid #c7c6b8;
-  background: #faf8f280;
-  cursor: pointer;
-}
-.lp-book-turn-controls button:hover { background: var(--catalog-color-paper); }
-.lp-book-turn-controls svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .lp-book-model figcaption {
   display: flex;
   justify-content: space-between;
@@ -220,52 +176,6 @@
 }
 .lp-configurator-controls > .lp-cta {
   width: 100%;
-}
-.lp-price-matrix {
-  border-top: 1px solid var(--catalog-color-rule);
-  margin-top: 28px;
-  padding-top: 20px;
-}
-.lp-price-matrix summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  cursor: pointer;
-  list-style: none;
-  font-size: var(--catalog-text-body);
-}
-.lp-price-matrix summary::-webkit-details-marker {
-  display: none;
-}
-.lp-price-matrix summary > span {
-  font-size: 24px;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-.lp-price-matrix[open] summary > span {
-  transform: rotate(45deg);
-}
-.lp-price-matrix table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
-  font-size: var(--catalog-text-label);
-  font-variant-numeric: tabular-nums;
-}
-.lp-price-matrix th,
-.lp-price-matrix td {
-  padding: 12px 0;
-  text-align: right;
-  border-bottom: 1px solid var(--catalog-color-rule);
-  font-weight: 400;
-  white-space: nowrap;
-}
-.lp-price-matrix th:first-child {
-  text-align: left;
-}
-.lp-price-matrix thead th {
-  color: var(--catalog-color-muted);
 }
 .lp-sr-only {
   position: absolute;
@@ -383,12 +293,6 @@
   .lp-price output {
     font-size: 60px;
   }
-  .lp-price-matrix table {
-    font-size: var(--catalog-text-body);
-  }
-  .lp-price-matrix summary {
-    font-size: var(--catalog-text-body);
-  }
   .landing[data-language="ka"] .lp-configurator .lp-section-heading h2 {
     font-size: clamp(2.1rem, 6.3vw, 3rem);
   }
@@ -402,10 +306,6 @@
 }
 .lp-configurator .lp-choice:active span {
   opacity: 0.8;
-}
-.lp-configurator .lp-price-matrix summary:focus-visible {
-  outline: 2px solid var(--catalog-color-focus);
-  outline-offset: 4px;
 }
 @media (prefers-reduced-motion: reduce) {
   .lp-configurator * {
