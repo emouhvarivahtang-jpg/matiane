@@ -47,6 +47,8 @@ sections and a visible photo book and action. The exact Russian proposition is
   color/dark/monochrome treatments and SVG downloads. These are alternatives;
   do not apply one as the global logo until the user chooses. Its CSS uses the
   `brand` version guard; customer/editor styles and behavior stay untouched.
+  Keep its files in `public/brand-assets/`, not `public/brand/`: Nginx resolves
+  real directories before the SPA fallback.
 - `/landing-archive`: frozen photo-journal version from `2d2097f`, including its
   own JSX, CSS, copy and catalog. Only the authorized brand rename and updated
   studio screenshots differ. Do not silently redesign the archive.

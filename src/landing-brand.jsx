@@ -15,7 +15,7 @@ function Arrow({ down = false }) {
 }
 function Concept({ concept: c, language, t, mode, index }) {
   const suffix = mode === "color" ? "" : `-${mode}`;
-  const assets = `/brand/concepts/${c.id}`, product = landingText[language];
+  const assets = `/brand-assets/concepts/${c.id}`, product = landingText[language];
   return <article className="identity-card" id={c.id} data-concept={c.id} data-type={c.type} style={{'--identity-paper':c.colors[0], '--identity-ink':c.colors[1], '--identity-accent':c.colors[2]}}>
     <header className="identity-card-heading"><span>0{index + 1}</span><h2>{c.name[language]}</h2><a href={`#${c.id}`} aria-label={c.name[language]}><Arrow /></a></header>
     <div className="identity-logo-stage" data-mode={mode}><img src={`${assets}/logo.svg`} alt={`verso — ${c.name[language]}`} width="1024" height="512" /></div>
@@ -42,7 +42,7 @@ export default function LandingBrand() {
     <header className="brand-review-header"><a className="brand-review-wordmark" href={`/designs?lang=${language}`}>verso<span> / </span></a><div><a href={`/designs?lang=${language}`}>{t.designs} <Arrow /></a><select aria-label={t.language} value={language} onChange={event=>changeLanguage(event.target.value)}><option value="ka">ქარ</option><option value="en">EN</option><option value="ru">RU</option></select></div></header>
     <main>
       <div className="brand-review-intro"><span>{t.kicker}</span><h1>{t.title}</h1><p>{t.intro}</p></div>
-      <nav className="brand-review-index" aria-label={t.set}>{BRAND_CONCEPTS.map((c,i)=><a key={c.id} href={`#${c.id}`}><img src={`/brand/concepts/${c.id}/mark.svg`} alt="" width="512" height="512" /><span>0{i+1} / {c.name[language]}</span></a>)}</nav>
+      <nav className="brand-review-index" aria-label={t.set}>{BRAND_CONCEPTS.map((c,i)=><a key={c.id} href={`#${c.id}`}><img src={`/brand-assets/concepts/${c.id}/mark.svg`} alt="" width="512" height="512" /><span>0{i+1} / {c.name[language]}</span></a>)}</nav>
       <div className="brand-review-controls"><span id="logo-background">{t.background}</span><div role="group" aria-labelledby="logo-background">{modes.map((value,i)=><button key={value} type="button" aria-pressed={mode===value} onClick={()=>setMode(value)}>{t.modes[i]}</button>)}</div></div>
       <div className="brand-review-grid">{BRAND_CONCEPTS.map((c,i)=><Concept key={c.id} concept={c} index={i} language={language} t={t} mode={mode} />)}</div>
     </main>

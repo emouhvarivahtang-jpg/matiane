@@ -113,3 +113,7 @@ Font provenance and design rationale are in each concept's `notes.json`.
 Required browser coverage now includes `tests/landing-brand.spec.js`, all nine
 landing alternatives, the gallery disclosure, SVG downloads in each treatment
 and cross-surface stylesheet injection.
+
+Identity SVGs live under `/brand-assets/`, separate from the `/brand` SPA route.
+Do not create `public/brand/`: production Nginx resolves real directories before
+its SPA fallback and would return a directory response instead of the page.
