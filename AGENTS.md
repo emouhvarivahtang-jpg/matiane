@@ -39,6 +39,14 @@ sections and a visible photo book and action. The exact Russian proposition is
   the approved v2 JSX, copy, prices and book card. No winner has been selected;
   keep the current main palette until the user chooses. Theme CSS stays inside
   the v2 surface and a matching `data-design` selector.
+- `/designs/{folio-sans,folio-editorial,signal-paper,bloom-linen}`: round two,
+  requested after the user preferred Folio composition and Signal typography.
+  Use bolder type with restrained paper/forest/ink palettes, and explicitly
+  verify Georgian. Original five remain available in the gallery disclosure.
+- `/brand`: separate localized logo/identity review surface. Five SVG concepts,
+  color/dark/monochrome treatments and SVG downloads. These are alternatives;
+  do not apply one as the global logo until the user chooses. Its CSS uses the
+  `brand` version guard; customer/editor styles and behavior stay untouched.
 - `/landing-archive`: frozen photo-journal version from `2d2097f`, including its
   own JSX, CSS, copy and catalog. Only the authorized brand rename and updated
   studio screenshots differ. Do not silently redesign the archive.

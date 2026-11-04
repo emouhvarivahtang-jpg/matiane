@@ -75,3 +75,8 @@ for cached bundles; customer books and photographs were not accessed.
 `designs/{folio,grove,signal,noir,bloom}-{ka,en,ru}.webp` are actual browser
 captures of the five alternative landing designs. They reuse the same approved
 copy and licensed images. Regenerate with `tools/capture-landing-designs.mjs`.
+
+The 2026-11-04 typographic refinements use the same licensed photographs and
+book renders. `designs/{folio-sans,folio-editorial,signal-paper,bloom-linen}-{ka,en,ru}.webp`
+are actual captures of those pages. Brand-page cover examples use `family.webp`.
+No customer images are used.

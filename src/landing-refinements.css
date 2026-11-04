@@ -1,0 +1,157 @@
+/* Second exploration: the approved copy with bolder type and quiet palettes. */
+@font-face { font-family: Verso Narrow; src: url('/fonts/NotoSans-CondensedBold.ttf') format('truetype'); font-weight: 700; font-display: swap; }
+@font-face { font-family: Verso Narrow Georgian; src: url('/fonts/NotoSansGeorgian-CondensedBold.ttf') format('truetype'); font-weight: 700; font-display: swap; }
+@font-face { font-family: Verso Soft; src: url('/fonts/Matiane-manrope-Bold.ttf') format('truetype'); font-weight: 700; font-display: swap; }
+
+.landing[data-refinement] {
+  --font-display: 'Verso Modern', 'Verso Georgian', sans-serif;
+  --font-body: 'Verso Modern', 'Verso Georgian', sans-serif;
+  --color-paper: #f5f3ed; --color-well: #eae7df; --color-field: #eeebe4;
+  --color-ink: #252823; --color-muted: #63665d; --color-rule: #cccfc2;
+  --color-accent: #343e34; --color-accent-hover: #222d23; --color-focus: #9a5140;
+  --radius-control: 4px; --text-section: clamp(32px, 3.2vw, 46px);
+}
+.landing[data-refinement] h1, .landing[data-refinement] h2, .landing[data-refinement] h3 {
+  font-weight: 700; letter-spacing: -.045em; line-height: 1.12;
+}
+.landing[data-refinement] .lp-logotype { font: 700 38px/1 var(--font-display); letter-spacing: -.065em; }
+.landing[data-refinement] .lp-logo svg { display: none; }
+.landing[data-refinement] .v2-head-line { display: inline; }
+.landing[data-refinement] .lp-intro { font-size: 17px; line-height: 1.7; }
+.landing[data-refinement] .lp-occasion h3, .landing[data-refinement] .lp-step-list h3 { font-size: 24px; letter-spacing: -.035em; }
+.landing[data-refinement] .lp-step-list li::before { font-weight: 700; font-size: 36px; }
+.landing[data-refinement] .lp-choice span { min-height: 48px; font-size: 15px; }
+.landing[data-refinement] .lp-price output { font-family: var(--font-display); font-weight: 700; font-size: 56px; }
+.landing[data-refinement] .v2-studio-proof { max-width: 1000px; }
+.landing[data-refinement] .v2-studio-proof img { border: 1px solid var(--color-rule); border-radius: 0; }
+
+/* FOLIO / SANS: centered Folio composition, confident Signal letterforms. */
+.landing[data-design='folio-sans'] { --color-accent: #9a5140; --color-accent-hover: #7b3c2e; --radius-control: 0px; }
+.landing[data-design='folio-sans'] .v2-hero-layout { grid-template-columns: 1fr; min-height: 0; padding-block: 56px 64px; gap: 28px; }
+.landing[data-design='folio-sans'] .lp-hero-copy { text-align: center; margin-inline: auto; }
+.landing[data-design='folio-sans'] .lp-hero h1 { max-width: 1120px; font-size: clamp(46px, 5.2vw, 76px); line-height: 1.08; }
+.landing[data-design='folio-sans'] .lp-intro { max-width: 650px; margin: 24px auto 0 !important; }
+.landing[data-design='folio-sans'] .v2-hero-actions { justify-content: center; margin-top: 24px; }
+.landing[data-design='folio-sans'] .lp-hero-art { width: min(100%, 680px); height: 490px; aspect-ratio: auto; margin-inline: auto; }
+.landing[data-design='folio-sans'] .lp-hero-art::before { inset: 0 0 12%; border-radius: 0; background: #e9e5dc; }
+.landing[data-design='folio-sans'] .v2-cover-sample { width: 29%; top: 2%; right: 8%; transform: rotateZ(5deg); }
+.landing[data-design='folio-sans'] .v2-open-sample { width: 80%; left: 5%; top: 9%; transform: rotateZ(-3deg); }
+.landing[data-design='folio-sans'] .v2-occasion-photo, .landing[data-design='folio-sans'] .v2-gift img { border-radius: 0; }
+.landing[data-design='folio-sans'] .lp-occasion h3 { border-top: 1px solid var(--color-rule); padding-top: 20px; }
+.landing[data-design='folio-sans'] .v2-how { background: var(--color-paper); border-block: 1px solid var(--color-rule); }
+.landing[data-design='folio-sans'] .lp-step-list li::before { color: var(--color-accent); }
+.landing[data-design='folio-sans'] .lp-configurator-controls { border: 0; border-top: 2px solid var(--color-ink); background: transparent; padding: 28px 0 0; }
+.landing[data-design='folio-sans'] .lp-book-viewer { border: 0; }
+
+/* FOLIO / EDITORIAL: a narrow publisher's headline and a horizontal introduction. */
+.landing[data-design='folio-editorial'] {
+  --font-display: 'Verso Narrow', 'Verso Narrow Georgian', sans-serif;
+  --color-paper: #f2f1eb; --color-well: #e1e4da; --color-field: #e5e8df;
+  --color-ink: #29372f; --color-muted: #59665b; --color-rule: #bac3b7;
+  --color-accent: #344c3d; --color-accent-hover: #22392b; --radius-control: 0px;
+}
+.landing[data-design='folio-editorial'] .lp-header { border-bottom: 2px solid var(--color-ink); }
+.landing[data-design='folio-editorial'] .lp-logotype { font-size: 44px; }
+.landing[data-design='folio-editorial'] .v2-hero-layout { grid-template-columns: 1fr; padding-block: 56px 64px; gap: 28px; min-height: 0; }
+.landing[data-design='folio-editorial'] .lp-hero-copy { display: grid; grid-template-columns: 1.9fr 1fr; column-gap: 64px; align-items: end; }
+.landing[data-design='folio-editorial'] .lp-hero h1 { grid-row: 1 / 3; font-size: clamp(52px, 5.5vw, 80px); max-width: none; line-height: 1.02; letter-spacing: -.045em; }
+.landing[data-design='folio-editorial'] .lp-intro { margin: 0 !important; padding-top: 24px; border-top: 1px solid var(--color-rule); }
+.landing[data-design='folio-editorial'] .v2-hero-actions { margin-top: 24px; gap: 16px; }
+.landing[data-design='folio-editorial'] .lp-hero-art { width: min(100%, 740px); height: 500px; margin-inline: auto; aspect-ratio: auto; }
+.landing[data-design='folio-editorial'] .lp-hero-art::before { inset: 0 0 13%; background: #e1e4da; border-radius: 0; }
+.landing[data-design='folio-editorial'] .v2-cover-sample { width: 28%; right: 10%; top: 1%; transform: rotateZ(4deg); }
+.landing[data-design='folio-editorial'] .v2-open-sample { width: 80%; left: 5%; top: 5%; transform: rotateZ(-3deg); }
+.landing[data-design='folio-editorial'] h2 { font-size: clamp(40px, 4vw, 58px); }
+.landing[data-design='folio-editorial'] .lp-occasion h3, .landing[data-design='folio-editorial'] .lp-step-list h3 { font-size: 29px; }
+.landing[data-design='folio-editorial'] .v2-occasion-photo, .landing[data-design='folio-editorial'] .v2-gift img { border-radius: 0; }
+.landing[data-design='folio-editorial'] .lp-step-list li { border-top: 2px solid var(--color-ink); }
+.landing[data-design='folio-editorial'] .lp-configurator-controls { border: 1px solid var(--color-ink); background: transparent; }
+.landing[data-design='folio-editorial'] .lp-book-viewer { border: 1px solid var(--color-rule); }
+
+/* SIGNAL / PAPER: bold sans serif, white space and just one blue accent. */
+.landing[data-design='signal-paper'] {
+  --color-paper: #f6f5f0; --color-well: #e5e9e9; --color-field: #e9eceb;
+  --color-ink: #25383f; --color-muted: #57676b; --color-rule: #c1cdcd;
+  --color-accent: #315d73; --color-accent-hover: #234456; --color-focus: #315d73;
+  --radius-control: 3px;
+}
+.landing[data-design='signal-paper'] .v2-hero-layout { min-height: 740px; padding-block: 64px; gap: 64px; }
+.landing[data-design='signal-paper'] .lp-hero h1 { font-size: clamp(42px, 4.3vw, 62px); line-height: 1.12; }
+.landing[data-design='signal-paper'] .lp-hero-art { height: 560px; background: #e3e8e7; border: 1px solid #c1cdcd; box-shadow: 10px 10px 0 #d6dfe0; }
+.landing[data-design='signal-paper'] .lp-hero-art::before { display: none; }
+.landing[data-design='signal-paper'] .v2-cover-sample { width: 39%; right: 10%; top: 5%; transform: rotateZ(6deg); }
+.landing[data-design='signal-paper'] .v2-open-sample { width: 90%; left: 5%; top: 17%; transform: rotateZ(-5deg); }
+.landing[data-design='signal-paper'] .lp-preview-caption { padding: 16px 20px; }
+.landing[data-design='signal-paper'] .v2-occasion-photo, .landing[data-design='signal-paper'] .v2-gift img { border-radius: 0; }
+.landing[data-design='signal-paper'] .lp-step-list li { border-top: 2px solid var(--color-ink); }
+.landing[data-design='signal-paper'] .lp-configurator-controls { background: #fcfcf8; border: 1px solid var(--color-rule); }
+.landing[data-design='signal-paper'] .lp-book-viewer { border: 1px solid var(--color-rule); }
+
+/* BLOOM / LINEN: the soft composition in linen, warm stone and quiet sage. */
+.landing[data-design='bloom-linen'] {
+  --font-display: 'Verso Soft', 'Verso Georgian', sans-serif;
+  --color-paper: #f1eee6; --color-well: #e6dfd3; --color-field: #e3e6da;
+  --color-ink: #364039; --color-muted: #60675e; --color-rule: #c7cbbd;
+  --color-accent: #455747; --color-accent-hover: #304132; --color-focus: #455747;
+  --radius-control: 18px;
+}
+.landing[data-design='bloom-linen'] .lp-header { width: calc(100% - var(--gutter) * 2); max-width: 1232px; padding-inline: 24px; margin-top: 20px; background: #faf8f2; border: 0; border-radius: 16px; height: 76px; }
+.landing[data-design='bloom-linen'] .v2-hero-layout { grid-template-columns: 1.05fr 1fr; min-height: 720px; padding-block: 64px 72px; gap: 52px; }
+.landing[data-design='bloom-linen'] .lp-hero-copy { order: 2; }
+.landing[data-design='bloom-linen'] .lp-hero h1 { font-size: clamp(40px, 4.2vw, 60px); line-height: 1.15; }
+.landing[data-design='bloom-linen'] .lp-hero-art { order: 1; height: 560px; background: #e4dacc; border-radius: 28px; }
+.landing[data-design='bloom-linen'] .lp-hero-art::before { display: none; }
+.landing[data-design='bloom-linen'] .v2-cover-sample { width: 40%; right: 9%; top: 5%; transform: rotateZ(8deg); }
+.landing[data-design='bloom-linen'] .v2-open-sample { width: 90%; left: 5%; top: 17%; transform: rotateZ(-5deg); }
+.landing[data-design='bloom-linen'] .lp-preview-caption { padding: 16px 20px; }
+.landing[data-design='bloom-linen'] .lp-occasion { padding: 14px 14px 24px; background: #faf8f2; border-radius: 20px; }
+.landing[data-design='bloom-linen'] .v2-occasion-photo { border-radius: 10px; }
+.landing[data-design='bloom-linen'] .lp-occasion h3, .landing[data-design='bloom-linen'] .lp-occasion > p { padding-inline: 8px; }
+.landing[data-design='bloom-linen'] .lp-step-list li { border: 0; padding: 28px; background: #f6f5ed; border-radius: 18px; }
+.landing[data-design='bloom-linen'] .v2-studio-proof img { border: 0; border-radius: 12px; }
+.landing[data-design='bloom-linen'] .lp-book-viewer { border: 0; background: #e4dacc; border-radius: 24px; }
+.landing[data-design='bloom-linen'] .lp-configurator-controls { border: 0; background: #faf8f2; border-radius: 24px; }
+.landing[data-design='bloom-linen'] .v2-gift img { border-radius: 20px; }
+
+.landing[data-refinement][data-language='ka'] h1 { font-size: clamp(35px, 3.3vw, 48px); line-height: 1.3; letter-spacing: -.015em; }
+.landing[data-refinement][data-language='ka'] h2 { font-size: clamp(30px, 2.9vw, 42px); }
+.landing[data-refinement][data-language='ka'] h3 { font-size: 22px; }
+.landing[data-design='folio-sans'][data-language='ka'] h1 { font-size: clamp(38px, 4vw, 58px); max-width: 1100px; }
+.landing[data-design='folio-editorial'][data-language='ka'] h1 { font-size: clamp(38px, 4.1vw, 58px); line-height: 1.2; }
+
+@media (min-width: 741px) and (max-width: 1100px) {
+  .landing[data-refinement] .v2-hero-layout { gap: 40px; }
+  .landing[data-refinement] .lp-hero h1 { font-size: 43px; }
+  .landing[data-refinement][data-language='ka'] .lp-hero h1 { font-size: 34px; }
+  .landing[data-design='folio-sans'] .lp-hero h1 { font-size: 56px; }
+  .landing[data-design='folio-sans'][data-language='ka'] .lp-hero h1 { font-size: 44px; }
+  .landing[data-design='folio-editorial'] .lp-hero h1 { font-size: 58px; }
+  .landing[data-design='folio-editorial'] .lp-hero-copy { column-gap: 32px; }
+  .landing[data-design='bloom-linen'] .lp-header nav { display: none; }
+  .landing[data-design='bloom-linen'] .lp-step-list li { padding: 20px; }
+}
+@media (max-width: 740px) {
+  .landing[data-refinement] .v2-hero-layout { grid-template-columns: minmax(0, 1fr); min-height: 0; padding-block: 36px 48px; gap: 28px; }
+  .landing[data-refinement] .lp-hero-copy { order: 0; display: block; text-align: left; }
+  .landing[data-refinement] .lp-hero h1 { font-size: clamp(32px, 8.7vw, 47px); line-height: 1.13; }
+  .landing[data-refinement] .lp-intro { font-size: 16px; max-width: none; margin-top: 22px !important; }
+  .landing[data-refinement] .v2-hero-actions { justify-content: flex-start; margin-top: 24px; }
+  .landing[data-refinement] .lp-hero-art { order: 1; width: 100%; height: auto; aspect-ratio: 1 / 1.1; margin-inline: auto; }
+  .landing[data-refinement][data-language='ka'] .lp-hero h1 { font-size: clamp(28px, 7.6vw, 38px); line-height: 1.3; }
+  .landing[data-refinement][data-language='ka'] h2 { font-size: 30px; }
+  .landing[data-refinement][data-language='ka'] h3 { font-size: 22px; }
+  .landing[data-refinement] .lp-configurator-controls { padding: 24px 20px; }
+  .landing[data-refinement] .lp-choice span { font-size: 14px; padding-inline: 4px; }
+  .landing[data-refinement] .lp-configurator .lp-price output { font-size: 48px; }
+  .landing[data-design='folio-sans'] .v2-cover-sample, .landing[data-design='folio-editorial'] .v2-cover-sample { width: 34%; top: 2%; right: 7%; }
+  .landing[data-design='folio-sans'] .v2-open-sample, .landing[data-design='folio-editorial'] .v2-open-sample { width: 92%; left: 1%; top: 17%; }
+  .landing[data-design='folio-sans'] .lp-configurator-controls { padding-inline: 0; }
+  .landing[data-design='folio-editorial'] .lp-hero h1 { font-size: clamp(40px, 10vw, 54px); }
+  .landing[data-design='folio-editorial'] .lp-intro { padding-top: 0; border-top: 0; }
+  .landing[data-design='signal-paper'] .lp-hero-art { width: calc(100% - 8px); margin-left: 0; box-shadow: 8px 8px 0 #d6dfe0; }
+  .landing[data-design='signal-paper'] .lp-preview-caption, .landing[data-design='bloom-linen'] .lp-preview-caption { padding: 12px; font-size: 12px; }
+  .landing[data-design='bloom-linen'] .lp-header { width: calc(100% - 32px); padding-inline: 16px; margin-top: 12px; height: 72px; }
+  .landing[data-design='bloom-linen'] .lp-logotype { font-size: 31px; }
+  .landing[data-design='bloom-linen'] .lp-step-list li { padding: 24px; }
+  .landing[data-design='bloom-linen'] .lp-step-list li::before { position: static; margin-bottom: 16px; }
+}

@@ -1,0 +1,35 @@
+{
+  "id": "frame",
+  "number": "03",
+  "name": "Кадр",
+  "rationale": "Асимметричная фоторамка со смещённым верхним углом превращает выбранный кадр в страницу книги и может обрамлять фотографии в фирменной графике.",
+  "font": {
+    "family": "Manrope",
+    "weight": "Bold (700)",
+    "source": "public/fonts/Matiane-manrope-Bold.ttf",
+    "upstream": "https://github.com/googlefonts/manrope",
+    "internalFamily": "Matiane Collection B",
+    "version": "4.505",
+    "license": "SIL Open Font License 1.1; public/fonts/manrope-OFL.txt",
+    "treatment": "Нижний регистр, оптические интервалы; настоящие контуры глифов преобразованы в пути fontTools."
+  },
+  "palette": {
+    "ivory": "#f4f0e9",
+    "blueInk": "#254456",
+    "mist": "#dce5e8"
+  },
+  "construction": {
+    "iconViewBox": "0 0 512 512",
+    "wordmarkViewBox": "0 0 1024 512",
+    "combinationViewBox": "0 0 1024 512",
+    "frameWeight": 48,
+    "cornerDisplacement": 32,
+    "negativeGap": 32,
+    "background": "transparent"
+  },
+  "limitations": [
+    "Рамка передаёт фотографию и кадрирование; связь с книгой усиливается названием и фотографиями продукта.",
+    "Знак предназначен для 16 px и выше; сочетание со словом требует ширины от 200 px, отдельное слово — от 140 px.",
+    "На тёмном фоне нужна одноцветная светлая версия с сохранением настоящих прозрачных просветов."
+  ]
+}

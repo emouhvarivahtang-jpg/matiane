@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures';
 
 test.use({ signedIn: false });
-const themes = ['folio', 'grove', 'signal', 'noir', 'bloom'];
+const themes = ['folio', 'grove', 'signal', 'noir', 'bloom', 'folio-sans', 'folio-editorial', 'signal-paper', 'bloom-linen'];
 const languages = ['ka', 'en', 'ru'];
 
 async function settle(page) {
@@ -72,16 +72,19 @@ for (const theme of themes) {
   });
 }
 
-test('the comparison gallery opens five localized designs with real previews', async ({ page }, info) => {
+test('the comparison gallery shows the new series and retains the original designs', async ({ page }, info) => {
   await page.goto('/designs');
   await expect(page.locator('html')).toHaveAttribute('data-landing-version', 'designs');
   await expect(page.locator('html')).toHaveAttribute('lang', 'ka');
   const cards = page.locator('.design-gallery-card');
-  await expect(cards).toHaveCount(5);
+  await expect(cards).toHaveCount(9);
+  await expect(page.locator('.design-gallery-archive')).not.toHaveAttribute('open', '');
+  await page.locator('.design-gallery-archive summary').click();
+  await expect(page.locator('.design-gallery-archive')).toHaveAttribute('open', '');
   for (const language of languages) {
     await page.locator('select').selectOption(language);
     await settle(page);
-    for (const [index, id] of themes.entries()) {
+    for (const [index, id] of [...themes.slice(5), ...themes.slice(0, 5)].entries()) {
       await expect(cards.nth(index)).toHaveAttribute('href', `/designs/${id}?lang=${language}`);
       await expect(cards.nth(index)).toHaveAttribute('target', '_blank');
       await expect(cards.nth(index).locator('img')).toHaveAttribute('src', `/landing/designs/${id}-${language}.webp`);

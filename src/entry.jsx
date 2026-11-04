@@ -10,12 +10,12 @@ const studio =
   parameters.has("auth") ||
   location.origin === "http://57.129.177.67";
 document.documentElement.dataset.surface = studio ? "studio" : "landing";
-const landingVersion = /^\/designs\/?$/.test(location.pathname)
-  ? "designs"
-  : /^\/landing-archive(?:\/|$)/.test(location.pathname)
-    ? "archive"
-    : /^\/landing-v2(?:\/|$)/.test(location.pathname)
-      ? "v2"
+const landingVersion = /^\/brand\/?$/.test(location.pathname)
+  ? "brand"
+  : /^\/designs\/?$/.test(location.pathname)
+    ? "designs"
+    : /^\/landing-archive(?:\/|$)/.test(location.pathname)
+      ? "archive"
       : "v2";
 if (!studio) document.documentElement.dataset.landingVersion = landingVersion;
 // Separate loader callbacks are essential: Vite 6 attaches the wrong CSS
@@ -23,17 +23,20 @@ if (!studio) document.documentElement.dataset.landingVersion = landingVersion;
 const Studio = lazy(() => import("./main.jsx"));
 const Landing = lazy(() => import("./landing.jsx"));
 const LandingV2 = lazy(() => import("./landing-v2.jsx"));
+const LandingBrand = lazy(() => import("./landing-brand.jsx"));
 const LandingDesigns = lazy(() => import("./landing-designs.jsx"));
 const LandingArchive = lazy(() => import("./landing-archive.jsx"));
 const Screen = studio
   ? Studio
-  : landingVersion === "designs"
-    ? LandingDesigns
-    : landingVersion === "archive"
-      ? LandingArchive
-      : landingVersion === "v2"
-        ? LandingV2
-        : Landing;
+  : landingVersion === "brand"
+    ? LandingBrand
+    : landingVersion === "designs"
+      ? LandingDesigns
+      : landingVersion === "archive"
+        ? LandingArchive
+        : landingVersion === "v2"
+          ? LandingV2
+          : Landing;
 
 createRoot(document.getElementById("root")).render(
   <Suspense

@@ -120,9 +120,9 @@ test("the built studio loads its own CSS and resists every landing stylesheet", 
       before[".workspace .book-spread"].height,
   ).toBeLessThan(900);
   const other = await page.context().newPage();
-  for (const path of ["/", "/landing-v2", "/landing-archive", "/designs/folio", "/designs"]) {
+  for (const path of ["/", "/landing-v2", "/landing-archive", "/designs/folio", "/designs", "/brand"]) {
     await other.goto(path + "?lang=en");
-    await expect(other.locator(path === "/designs" ? ".design-gallery" : ".lp-hero")).toBeVisible();
+    await expect(other.locator(path === "/brand" ? ".brand-review" : path === "/designs" ? ".design-gallery" : ".lp-hero")).toBeVisible();
     await page.addStyleTag({ content: await styles(other) });
     expect(await studioMetrics(page)).toEqual(before);
   }
@@ -139,7 +139,7 @@ test("the built studio loads its own CSS and resists every landing stylesheet", 
   });
 });
 
-for (const landing of ["/", "/landing-v2", "/landing-archive", "/designs/folio"]) {
+for (const landing of ["/", "/landing-v2", "/landing-archive", "/designs/folio", "/designs/folio-sans"]) {
   test(`the built ${landing} loads its own CSS and resists the studio and other landing versions`, async ({
     page,
   }, info) => {
@@ -185,10 +185,10 @@ for (const landing of ["/", "/landing-v2", "/landing-archive", "/designs/folio"]
     await other.goto("/studio");
     await expect(other.locator(".cabinet")).toBeVisible();
     await page.addStyleTag({ content: await styles(other) });
-    for (const path of ["/", "/landing-v2", "/landing-archive", "/designs/folio", "/designs"]) {
+    for (const path of ["/", "/landing-v2", "/landing-archive", "/designs/folio", "/designs", "/brand"]) {
       if (path === landing) continue;
       await other.goto(path + "?lang=ru");
-      await expect(other.locator(path === "/designs" ? ".design-gallery" : ".lp-hero")).toBeVisible();
+      await expect(other.locator(path === "/brand" ? ".brand-review" : path === "/designs" ? ".design-gallery" : ".lp-hero")).toBeVisible();
       await page.addStyleTag({ content: await styles(other) });
       expect(await metrics()).toEqual(before);
     }

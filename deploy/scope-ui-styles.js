@@ -6,7 +6,7 @@ export function scopeUiStyles() {
     Once(root) {
       const path = root.source?.input.file?.replaceAll("\\", "/") || "";
       const surface =
-        /\/src\/landing(?:-v2|-archive|-configurator|-themes|-designs)?\.css$/.test(path)
+        /\/src\/landing(?:-v2|-archive|-configurator|-themes|-refinements|-designs|-brand)?\.css$/.test(path)
           ? "landing"
           : /\/src\/(?:styles|studio|fonts)\.css$/.test(path)
             ? "studio"
@@ -14,9 +14,11 @@ export function scopeUiStyles() {
       if (!surface) return;
       const version = path.endsWith("/landing.css")
         ? "classic"
-        : path.endsWith("/landing-designs.css")
+        : path.endsWith("/landing-brand.css")
+          ? "brand"
+          : path.endsWith("/landing-designs.css")
           ? "designs"
-          : path.endsWith("/landing-v2.css") || path.endsWith("/landing-themes.css")
+          : path.endsWith("/landing-v2.css") || path.endsWith("/landing-themes.css") || path.endsWith("/landing-refinements.css")
           ? "v2"
           : path.endsWith("/landing-archive.css")
             ? "archive"

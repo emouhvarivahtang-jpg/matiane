@@ -10,7 +10,7 @@ const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['-
 try {
  const page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
  page.on('pageerror',error=>{throw error;});
- for(const {id} of LANDING_THEMES) for(const language of ['ka','en','ru']) {
+ for(const {id} of LANDING_THEMES.filter(theme => !process.argv.includes('--round=2') || theme.round === 2)) for(const language of ['ka','en','ru']) {
   await page.setViewportSize({width:1440,height:1000});
   await page.goto(`http://127.0.0.1:5173/designs/${id}?lang=${language}`);
   await page.locator('.lp-hero').waitFor();

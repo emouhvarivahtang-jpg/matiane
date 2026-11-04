@@ -86,3 +86,30 @@ Run Hallmark against the landing JSX and CSS and the actual Vite URL, then
 checks against the actual HTTPS site with the supported verifying TLS relay.
 Check all price combinations, language order, all three routes, example-spread controls,
 registration, mobile action targets and studio geometry.
+
+## Second exploration, 2026-11-04
+
+The user prefers Folio's composition and Signal's typography. Four new routes
+combine bold sans-serif typography with calmer colors: Folio / Sans, Folio /
+Editorial (Noto Sans Condensed with matching Georgian), Signal / Paper and
+Bloom / Linen (Manrope with Noto Sans Georgian). All use the same v2 copy,
+prices, fixed product card and registration links. They have `data-refinement`
+and their own `landing-refinements.css`, scoped to v2. The original five remain
+unchanged and accessible in the gallery's expandable comparison section.
+
+`/brand` is a separate review page for five outlined SVG concepts: Turn, Index,
+Frame, Tact and Imprint. It includes color/dark/mono logo previews and matching
+SVG downloads, palettes, book-cover/web applications and KA/EN/RU type samples.
+No final identity has been selected or integrated into the editor.
+
+The [Logo Designer skill](https://github.com/neonwatty/logo-designer-skill/blob/main/skills/logo-designer/SKILL.md)
+(MIT) informed the distinct concept exploration, self-contained SVG structure,
+parallel concept creation and small-size/monochrome checks. Brand context and
+format were already supplied, so the exploration used that brief directly.
+No external generators, image uploads, or additional application dependencies.
+The public logo paths use existing licensed fonts converted to outlines.
+Font provenance and design rationale are in each concept's `notes.json`.
+
+Required browser coverage now includes `tests/landing-brand.spec.js`, all nine
+landing alternatives, the gallery disclosure, SVG downloads in each treatment
+and cross-surface stylesheet injection.

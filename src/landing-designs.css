@@ -43,3 +43,22 @@ body { margin: 0; background: #f4f1eb; }
   .design-gallery h2 { font-size: 32px; }
 }
 @media (prefers-reduced-motion: reduce) { .design-gallery * { transition: none !important; } }
+.design-gallery-kicker { display: block; margin-bottom: 20px; color: #6d7164; font-size: 13px; letter-spacing: .06em; }
+.design-gallery-title h2 { font-size: clamp(25px, 2.8vw, 36px); }
+.design-gallery-swatches { flex-shrink: 0; }
+.design-gallery-archive { margin-top: 72px; border-top: 1px solid #c5c1b8; }
+.design-gallery-archive summary { display: flex; align-items: center; gap: 20px; justify-content: space-between; min-height: 92px; cursor: pointer; font-size: 20px; }
+.design-gallery-archive summary::after { content: '+'; font-size: 28px; }
+.design-gallery-archive[open] summary::after { content: '−'; }
+.design-gallery-archive summary small { margin-left: auto; font-size: 13px; color: #66665e; }
+.design-gallery-archive .design-gallery-grid { padding: 12px 0 0; }
+.design-gallery footer { display: flex; gap: 24px; justify-content: space-between; }
+@media (max-width: 740px) {
+  .design-gallery-title { flex-wrap: wrap; gap: 10px; }
+  .design-gallery-title h2 { font-size: 28px; }
+  .design-gallery-swatches i { width: 16px; height: 16px; }
+  .design-gallery-archive { margin-top: 48px; }
+  .design-gallery-archive summary { font-size: 17px; }
+  .design-gallery-archive summary small { display: none; }
+  .design-gallery-header .design-gallery-brand-link { max-width: 140px; }
+}

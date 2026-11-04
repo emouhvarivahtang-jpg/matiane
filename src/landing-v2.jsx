@@ -5,6 +5,7 @@ import { initialLandingLanguage } from "./landing-language";
 import { BookConfigurator } from "./landing-configurator";
 import "./landing-v2.css";
 import "./landing-themes.css";
+import "./landing-refinements.css";
 import { currentLandingTheme } from "./landing-theme-catalog";
 
 function Flower() {
@@ -114,7 +115,7 @@ export default function LandingV2() {
     </a>
   );
   return (
-    <div className="landing landing-v2" data-language={language} data-design={design?.id || "classic"}>
+    <div className="landing landing-v2" data-language={language} data-design={design?.id || "classic"} data-refinement={design?.round === 2 ? "true" : undefined}>
       <a className="lp-skip" href="#main">
         {t.skip}
       </a>
